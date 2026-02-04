@@ -1,3 +1,4 @@
+import AuditorUpload from '../components/AuditorUpload';
 import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx-js-style';
 import { FileCard } from '../components/FileCard';
