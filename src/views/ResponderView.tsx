@@ -327,7 +327,15 @@ export default function ResponderView() {
            <div className="text-center space-y-10 py-20 animate-in zoom-in">
               <div className="text-[100px] drop-shadow-2xl">🏆</div>
               <h2 className="text-5xl font-black text-[#1e293b] italic uppercase leading-none">Concluído!</h2>
-              <button onClick={() => window.location.reload()} className="px-14 py-5 bg-[#1e293b] text-white rounded-full font-black uppercase tracking-widest shadow-2xl hover:bg-indigo-600 transition-all">Reiniciar Sessão</button>
+              
+              {/* 3. Insira o componente de upload aqui para o funcionário salvar no Google Cloud */}
+              <div className="max-w-md mx-auto mt-8">
+                <AuditorUpload />
+              </div>
+        
+              <button onClick={() => window.location.reload()} className="px-14 py-5 bg-[#1e293b] text-white rounded-full font-black uppercase tracking-widest shadow-2xl hover:bg-indigo-600 transition-all">
+                Reiniciar Sessão
+              </button>
            </div>
         )}
       </div>
