@@ -10,13 +10,12 @@ export default function App() {
   // Estados Globais de Arquivos
   const [rulesFile, setRulesFile] = useState<File | null>(null);
   const [senderFormFile, setSenderFormFile] = useState<File | null>(null);
-  const [baseFile, setBaseFile] = useState<File | null>(null); // Adicionado
-  const [employeeFiles, setEmployeeFiles] = useState<FileList | null>(null); // Adicionado
+  const [baseFile, setBaseFile] = useState<File | null>(null);
+  const [employeeFiles, setEmployeeFiles] = useState<FileList | null>(null);
   const [workerColors, setWorkerColors] = useState<Record<string, string>>({});
 
   const isImmersive = activeTab === 'responder';
 
-  // Lógica de Importar/Exportar JSON de Cores
   const handleExportColors = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(workerColors));
     const downloadAnchorNode = document.createElement('a');
@@ -86,7 +85,6 @@ export default function App() {
           {activeTab === 'consolidar' && (
             <ConsolidationView 
               baseFile={baseFile} setBaseFile={setBaseFile}
-              rulesFile={rulesFile} setRulesFile={setRulesFile}
               employeeFiles={employeeFiles} setEmployeeFiles={setEmployeeFiles}
               workerColors={workerColors}
             />
