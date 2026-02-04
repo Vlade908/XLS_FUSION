@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import path from 'path';
 
 // 1. Sua URI do Firestore Enterprise (Modo MongoDB)
-const mongoURI = "mongodb://usuario:senha@host-gcp:27017/xlfusion?ssl=true";
+const mongoURI = "mongodb://enzoalves:0wr4Gc6R_4k44nCFPprHVLrpPiMDRIFhYeVCijjAVkzqAp1G@16158504-0949-4082-a560-03c600920d32.nam5.firestore.goog:443/formulario01?loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
 
 // 2. Criar a conexão
 const conn = mongoose.createConnection(mongoURI);
