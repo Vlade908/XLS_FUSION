@@ -8,6 +8,10 @@ const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+app.get('/', (req, res) => {
+  res.send('API XLFusion operando na porta 5000. Use a porta 5173 para o Front-end.');
+});
+
 // REGISTRO DAS ROTAS
 registerRoutes(app);
 
