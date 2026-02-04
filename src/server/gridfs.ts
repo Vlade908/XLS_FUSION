@@ -36,4 +36,12 @@ const storage = new GridFsStorage({
   }
 });
 
+conn.on('error', (err) => {
+  console.error("ERRO DE CONEXÃO FIRESTORE/MONGO:", err);
+});
+
+conn.once('open', () => {
+  console.log("CONECTADO COM SUCESSO AO FIRESTORE ENTERPRISE!");
+});
+
 export const upload = multer({ storage });
