@@ -337,7 +337,7 @@ export default function ResponderView() {
                 Reiniciar Sessão
               </button>
            </div>
-        )}
+      )}
       </div>
     </div>
   );
