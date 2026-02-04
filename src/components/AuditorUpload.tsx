@@ -18,6 +18,7 @@ export default function AuditorUpload() {
 
     try {
       const response = await fetch('/api/upload-planilha', {
+        // Verifique a barra /
         method: 'POST',
         body: formData,
       });
