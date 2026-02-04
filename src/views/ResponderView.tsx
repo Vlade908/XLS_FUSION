@@ -138,36 +138,33 @@ export default function ResponderView() {
 
       <div className="w-full max-w-4xl relative z-10 flex flex-col items-center mt-10">
         
-        {/* ESTADO 1: IMPORTAÇÃO - CORRIGIDO PARA LARGURA 90% */}
+        {/* ESTADO 1: IMPORTAÇÃO - AJUSTADO PARA 90% DE LARGURA */}
         {!answerFile && !selectedResponder && (
           <div className="w-full space-y-12 animate-in fade-in zoom-in duration-700 text-center flex flex-col items-center">
             <h1 className="text-5xl font-black text-[#1e293b] leading-none uppercase tracking-tighter">
               Modo <span className="bg-gradient-to-r from-[#4f46e5] to-[#a855f7] bg-clip-text text-transparent italic">Resposta</span>
             </h1>
             
-            {/* 1. Alterado max-w-2xl para w-[90%] para ocupar quase toda a tela */}
-            <div className="bg-white/40 backdrop-blur-[30px] p-2 rounded-[4.5rem] border border-white shadow-2xl w-[90%] lg:w-[90%]">
+            {/* Trocamos 'max-w-2xl' por 'w-[90%]' para expansão horizontal */}
+            <div className="bg-white/40 backdrop-blur-[30px] p-2 rounded-[4.5rem] border border-white shadow-2xl w-[90%]">
               <div className="bg-white rounded-[4rem] p-12 md:p-16 flex flex-col items-center w-full">
                 <div className="w-24 h-24 bg-indigo-600 rounded-3xl flex items-center justify-center text-4xl shadow-xl mb-10 text-white">📩</div>
                 <h2 className="text-2xl font-black text-[#1e293b] uppercase italic mb-8 tracking-tight">IMPORTAR FORMULÁRIO</h2>
                 
-                {/* 2. Adicionado container w-full ao redor do FileCard para garantir que ele expanda */}
-                <div className="w-full flex justify-center">
-                  <div className="w-full">
-                    <FileCard 
-                      title="Clique ou arraste o arquivo" 
-                      subtitle="Selecione o arquivo Excel gerado na preparação" 
-                      color="bg-transparent" 
-                      icon="" 
-                      file={answerFile} 
-                      onFileChange={handleAnswerFileUpload} 
-                    />
-                  </div>
+                {/* Container full width para o FileCard preencher o espaço de 90% */}
+                <div className="w-full">
+                  <FileCard 
+                    title="Clique ou arraste o formulário aqui" 
+                    subtitle="Selecione o arquivo gerado na etapa de Preparação" 
+                    color="bg-transparent" 
+                    icon="" 
+                    file={answerFile} 
+                    onFileChange={handleAnswerFileUpload} 
+                  />
                 </div>
               </div>
             </div>
           </div>
-        )}iv>
         )}
 
         {answerFile && !selectedResponder && !isResponderFinished && (
