@@ -1,18 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PreparationView from './views/PreparationView';
 import FiltrosView from './views/FiltrosView';
 import ResponderView from './views/ResponderView';
 import ConsolidationView from './views/ConsolidationView';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('preparacao');
+  // 1. Inicializa o estado com base no que está na URL ou 'preparacao' por padrão
+  const [activeTab, setActiveTab] = useState(() => {
+    const hash = window.location.hash.replace('#', '');
+    return ['preparacao', 'filtros', 'responder', 'consolidar'].includes(hash) ? hash : 'preparacao';
+  });
   
-  // Estados Globais de Arquivos
   const [rulesFile, setRulesFile] = useState<File | null>(null);
   const [senderFormFile, setSenderFormFile] = useState<File | null>(null);
   const [baseFile, setBaseFile] = useState<File | null>(null);
   const [employeeFiles, setEmployeeFiles] = useState<FileList | null>(null);
   const [workerColors, setWorkerColors] = useState<Record<string, string>>({});
+
+  // 2. Efeito para atualizar a URL sempre que a aba mudar
+  useEffect(() => {
+    window.location.hash = activeTab;
+  }, [activeTab]);
+
+  // 3. Efeito para detectar se o usuário clicou no "Voltar" do navegador ou mudou o link manualmente
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && hash !== activeTab) {
+        setActiveTab(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [activeTab]);
 
   const isImmersive = activeTab === 'responder';
 
@@ -34,9 +54,7 @@ export default function App() {
       try {
         const json = JSON.parse(event.target?.result as string);
         setWorkerColors(json);
-      } catch (err) {
-        alert("Erro ao importar JSON.");
-      }
+      } catch (err) { alert("Erro ao importar JSON."); }
     };
     reader.readAsText(file);
   };
