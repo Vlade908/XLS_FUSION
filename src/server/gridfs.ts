@@ -5,6 +5,8 @@ import multer from 'multer';
 import { GridFsStorage } from 'multer-gridfs-storage';
 import crypto from 'crypto';
 
+let conn: mongoose.Connection;
+
 // 1. Configuração de Credenciais
 process.env.GOOGLE_APPLICATION_CREDENTIALS = path.join(process.cwd(), 'google-credentials.json');
 
