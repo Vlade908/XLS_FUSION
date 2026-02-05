@@ -16,30 +16,39 @@ const auth = new GoogleAuth({
   scopes: 'https://www.googleapis.com/auth/cloud-platform'
 });
 
-// 2. URI de Conexão
+// 2. URI de Conexão (Conforme documentação oficial que você enviou)
 const mongoURI = `mongodb://EXTERNAL_CALLBACK_USER@${DATABASE_UID}.${LOCATION}.firestore.goog:443/${DATABASE_ID}?authMechanism=MONGODB-OIDC&ssl=true&retryWrites=false`;
 
-// 3. Criamos a Conexão
+// 3. Função para gerar o token do Google Cloud
+const fetchGoogleToken = async () => {
+  const client = await auth.getClient();
+  const response = await client.getAccessToken();
+  return {
+    accessToken: response.token,
+    expiresInSeconds: 3600
+  };
+};
+
+// 4. Propriedades de Autenticação OIDC
+const authProps = {
+  authMechanismProperties: {
+    ENVIRONMENT: 'test',
+    OIDC_CALLBACK: fetchGoogleToken
+  }
+};
+
+// 5. Criamos a Conexão principal
 const conn = mongoose.createConnection();
 
-// 4. Configuração do Storage do GridFS
-// IMPORTANTE: O storage precisa da URI para funcionar de forma independente
+// Tentativa de conexão direta
+conn.openUri(mongoURI, authProps)
+  .then(() => console.log("✅ XLFusion: Conectado ao Firestore Enterprise via OIDC"))
+  .catch(err => console.error("❌ Erro na conexão inicial:", err.message));
+
+// 6. Configuração do Storage do GridFS
 const storage = new GridFsStorage({
   url: mongoURI,
-  options: {
-    // @ts-ignore
-    authMechanismProperties: {
-      ENVIRONMENT: 'test',
-      OIDC_CALLBACK: async () => {
-        const client = await auth.getClient();
-        const response = await client.getAccessToken();
-        return {
-          accessToken: response.token,
-          expiresInSeconds: 3600
-        };
-      }
-    }
-  },
+  options: authProps, // Aqui passamos as propriedades para o storage também
   file: (req, file) => {
     return new Promise((resolve, reject) => {
       crypto.randomBytes(16, (err, buf) => {
@@ -56,11 +65,5 @@ const storage = new GridFsStorage({
   }
 });
 
-// 5. EXPORTAÇÕES (O que estava faltando)
 export const upload = multer({ storage });
 export { conn };
-
-// Inicializa a conexão para log de debug
-conn.openUri(mongoURI, storage.options).then(() => {
-  console.log("✅ XLFusion: Conectado ao Firestore Enterprise via OIDC");
-}).catch(err => console.error("❌ Erro na conexão inicial:", err));
