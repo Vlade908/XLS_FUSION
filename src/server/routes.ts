@@ -1,6 +1,7 @@
 import { Express } from 'express';
-import { upload } from './gridfs.js';
-import { MongoClient, GridFSBucket } from 'mongodb';
+import { upload } from './gridfs.js'; // Mantemos o multer para receber o arquivo no Bolt
+import { Storage } from '@google-cloud/storage';
+import path from 'path';
 import fs from 'fs';
 
 export function registerRoutes(app: Express) {
@@ -10,45 +11,47 @@ export function registerRoutes(app: Express) {
     try {
       if (!req.file) return res.status(400).send("Arquivo não recebido.");
 
-      console.log("📁 [TI] Arquivo em disco:", req.file.originalname);
+      console.log("📁 [TI] Preparando upload via HTTPS para Cloud Storage...");
 
-      // Usando a sua URI exata com SCRAM-SHA-256
-      const mongoURI = `mongodb://enzoalves:YfRSv9oN02rXCKgnrZvni5Q2u57GpL_naCsZj7eKnAfHQfeQ@16158504-0949-4082-a560-03c600920d32.nam5.firestore.goog:443/formulario01?loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false`;
-
-      console.log("📡 [TI] Tentando handshake SCRAM-SHA-256...");
-
-      // Ajuste de agressividade para redes instáveis/bloqueadas
-      const client = new MongoClient(mongoURI, {
-        serverSelectionTimeoutMS: 20000, // Aumentamos para 20s
-        connectTimeoutMS: 20000,
-        tls: true,
-        tlsInsecure: true, // Ignora erros de certificado que o Bolt pode causar
-        family: 4,
-        maxPoolSize: 1
+      // 1. Configura o Cliente do Storage (Ele lê o JSON automaticamente se o GOOGLE_APPLICATION_CREDENTIALS estiver setado)
+      const storage = new Storage({
+        keyFilename: path.join(process.cwd(), 'google-credentials.json'),
+        projectId: 'SEU-PROJECT-ID-AQUI' // <-- TROQUE PELO ID DO SEU PROJETO NO GOOGLE
       });
 
-      await client.connect();
-      console.log("✅ [TI] CONEXÃO ESTABELECIDA VIA SCRAM!");
+      const BUCKET_NAME = 'NOME-DO-SEU-BUCKET-AQUI'; // <-- TROQUE PELO NOME DO BUCKET QUE VOCÊ CRIOU
+      const destFileName = `auditorias/${Date.now()}-${req.file.originalname}`;
 
-      const db = client.db('formulario01');
-      const bucket = new GridFSBucket(db, { bucketName: 'planilhas_auditoria' });
+      console.log(`📡 [TI] Enviando para o Bucket: ${BUCKET_NAME}...`);
 
-      console.log("📤 [TI] Iniciando stream GridFS...");
-      const uploadStream = bucket.openUploadStream(req.file.originalname);
+      // 2. Faz o upload direto do arquivo que está no disco virtual do Bolt
+      await storage.bucket(BUCKET_NAME).upload(tempPath!, {
+        destination: destFileName,
+        metadata: {
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          metadata: {
+            worker: req.body.workerName || 'Alisson',
+            uploadDate: new Date().toISOString()
+          }
+        }
+      });
 
-      fs.createReadStream(tempPath!).pipe(uploadStream)
-        .on('error', (err) => { throw err; })
-        .on('finish', async () => {
-          console.log("🚀 [TI] PERSISTÊNCIA CONCLUÍDA!");
-          if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-          await client.close();
-          res.status(200).end("Sucesso: Arquivo salvo no Firestore!");
-        });
+      console.log("🚀 [TI] SUCESSO TOTAL! Arquivo disponível no Cloud Storage.");
+
+      // Limpeza do arquivo temporário no Bolt
+      if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+
+      res.status(200).json({ 
+        message: "Enviado com sucesso para o Cloud Storage!",
+        url: `gs://${BUCKET_NAME}/${destFileName}`
+      });
 
     } catch (err: any) {
       console.error("❌ [TI ERROR]:", err.message);
       if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-      res.status(500).setHeader('Content-Type', 'text/plain').end(`Falha na Conexão: ${err.message}`);
+      
+      // Como o Cloud Storage usa HTTPS, se der erro aqui, o log vai te dizer exatamente por que (ex: permissão negada)
+      res.status(500).send(`Falha no Storage: ${err.message}`);
     }
   });
 }
