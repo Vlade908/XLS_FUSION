@@ -19,10 +19,10 @@ export function registerRoutes(app: Express) {
 
       console.log("🔗 Conectando ao MongoDB Atlas...");
 
-      // Conexão direta com o Atlas
+      // Conexão simples para teste no Atlas
       const conn = await mongoose.createConnection(mongoURI, {
-        serverSelectionTimeoutMS: 15000,
-        family: 4 // Força IPv4 para estabilidade no Bolt
+        serverSelectionTimeoutMS: 10000,
+        family: 4
       }).asPromise();
 
       console.log("✅ Conectado ao MongoDB Atlas!");
@@ -35,31 +35,29 @@ export function registerRoutes(app: Express) {
         metadata: {
           worker: req.body.workerName || 'Alisson',
           uploadDate: new Date(),
-          projeto: 'XLS Fusion Auditoria'
+          ambiente: 'Desenvolvimento Atlas'
         }
       });
       
-      // Pipe do arquivo do disco virtual para o Atlas
+      // Pipe do arquivo temporário para o Atlas
       fs.createReadStream(tempPath!).pipe(uploadStream)
         .on('error', (streamErr) => {
-          console.error("❌ Erro no Stream de upload:", streamErr);
+          console.error("❌ Erro no Stream:", streamErr);
           throw streamErr;
         })
         .on('finish', () => {
           console.log("🚀 Planilha salva com sucesso no ATLAS!");
-          
-          // Limpeza do arquivo temporário
           if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
           
-          conn.close(); // Fecha conexão para poupar memória
-          res.status(200).json({ message: "Sucesso! Salvo no Atlas." });
+          conn.close();
+          res.status(200).json({ message: "Sucesso! Arquivo salvo no MongoDB Atlas." });
         });
 
     } catch (err: any) {
       console.error("❌ Erro no processo Atlas:", err.message);
       if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
       
-      // Resposta segura para o Bolt não travar
+      // Resposta limpa para não travar o buffer do Bolt
       res.status(500).send(`Erro: ${err.message}`);
     }
   });
