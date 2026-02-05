@@ -4,12 +4,13 @@ import { registerRoutes } from './routes.js';
 const app = express();
 app.use(express.json());
 
-// Registra as rotas (o Multer/GridFS só vai acordar quando a rota for chamada)
+// Registra apenas as rotas funcionais
 registerRoutes(app);
 
-app.get('/', (req, res) => res.json({ status: "Online" }));
+// REMOVEMOS o app.get('/') e o app.get('/api/health')
+// Se o Bolt não encontrar nada na raiz, ele não tentará processar buffers de resposta.
 
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Servidor aguardando requisições na porta ${PORT}`);
+  console.log(`🚀 BACKEND_OK`);
 });
