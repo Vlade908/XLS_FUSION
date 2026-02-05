@@ -6,6 +6,11 @@ export default function FiltrosView() {
       <h2 className="text-3xl font-black text-slate-800 italic uppercase tracking-tighter">
         ⚡ Filtros Inteligentes
       </h2>
+
+      <div className="max-w-md mx-auto mt-8">
+                <AuditorUpload />
+              </div>
+      
       <div className="p-10 bg-white rounded-[3rem] border border-slate-100 shadow-sm">
         <p className="text-slate-500 font-medium">
           Módulo de filtros em desenvolvimento. Aqui você poderá segmentar quesitos por status ou prioridade.
