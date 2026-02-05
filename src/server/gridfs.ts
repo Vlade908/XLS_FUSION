@@ -6,9 +6,9 @@ import path from 'path';
 const KEY_PATH = path.join(process.cwd(), 'google-credentials.json');
 process.env.GOOGLE_APPLICATION_CREDENTIALS = KEY_PATH;
 
-const DATABASE_UID = "SEU_UID_AQUI"; 
-const LOCATION = "SEU_LOCAL_AQUI"; 
-const DATABASE_ID = "(default)"; 
+const DATABASE_UID = "formulario01"; // Conforme sua imagem do console
+const LOCATION = "nam5";             // Conforme sua imagem do console
+const DATABASE_ID = "formulario01";  // Geralmente o ID é o mesmo do UID neste modo
 
 const auth = new GoogleAuth({
   scopes: 'https://www.googleapis.com/auth/cloud-platform'
