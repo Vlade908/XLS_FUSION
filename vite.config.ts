@@ -13,6 +13,8 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:5000', // Certifique-se que seu servidor node usa esta porta
         changeOrigin: true,
+        timeout:60000,
+        proxyTimeout: 60000,
         secure: false,
       },
     },
