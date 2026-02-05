@@ -1,8 +1,8 @@
 import { Express } from 'express';
-import { upload } from './gridfs.js'; // Mantemos o multer para receber o arquivo no Bolt
-import { Storage } from '@google-cloud/storage';
-import path from 'path';
+import { upload } from './gridfs.js';
 import fs from 'fs';
+import { GoogleAuth } from 'google-auth-library';
+import path from 'path';
 
 export function registerRoutes(app: Express) {
   app.post('/api/upload-planilha', upload.single('file'), async (req, res) => {
@@ -11,47 +11,53 @@ export function registerRoutes(app: Express) {
     try {
       if (!req.file) return res.status(400).send("Arquivo não recebido.");
 
-      console.log("📁 [TI] Preparando upload via HTTPS para Cloud Storage...");
+      console.log("📁 [TI] Preparando upload via REST API para Cloud Storage...");
 
-      // 1. Configura o Cliente do Storage (Ele lê o JSON automaticamente se o GOOGLE_APPLICATION_CREDENTIALS estiver setado)
-      const storage = new Storage({
-        keyFilename: path.join(process.cwd(), 'google-credentials.json'),
-        projectId: 'teste-f9d4e' // <-- TROQUE PELO ID DO SEU PROJETO NO GOOGLE
+      // 1. Autenticação Manual (Pega o token do seu JSON)
+      const auth = new GoogleAuth({
+        keyFile: path.join(process.cwd(), 'google-credentials.json'),
+        scopes: 'https://www.googleapis.com/auth/cloud-platform',
       });
+      const authToken = await auth.getAccessToken();
 
-      const BUCKET_NAME = 'auditoria-xls-fusion'; // <-- TROQUE PELO NOME DO BUCKET QUE VOCÊ CRIOU
+      const PROJECT_ID = 'teste-f9d4e';
+      const BUCKET_NAME = 'auditoria-xls-fusion';
       const destFileName = `auditorias/${Date.now()}-${req.file.originalname}`;
 
-      console.log(`📡 [TI] Enviando para o Bucket: ${BUCKET_NAME}...`);
+      console.log(`📡 [TI] Enviando via HTTPS para: ${BUCKET_NAME}`);
 
-      // 2. Faz o upload direto do arquivo que está no disco virtual do Bolt
-      await storage.bucket(BUCKET_NAME).upload(tempPath!, {
-        destination: destFileName,
-        metadata: {
-          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          metadata: {
-            worker: req.body.workerName || 'Alisson',
-            uploadDate: new Date().toISOString()
-          }
-        }
+      // 2. Leitura do arquivo para Buffer
+      const fileBuffer = fs.readFileSync(tempPath!);
+
+      // 3. Upload via Fetch (API REST do Google)
+      // Usamos a URL de upload simples do Google Cloud Storage
+      const uploadUrl = `https://storage.googleapis.com/upload/storage/v1/b/${BUCKET_NAME}/o?uploadType=media&name=${encodeURIComponent(destFileName)}`;
+
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+        body: fileBuffer
       });
 
-      console.log("🚀 [TI] SUCESSO TOTAL! Arquivo disponível no Cloud Storage.");
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Google API Error: ${errorText}`);
+      }
 
-      // Limpeza do arquivo temporário no Bolt
+      console.log("🚀 [TI] SUCESSO! Arquivo salvo no Bucket via REST.");
+
+      // Limpeza
       if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
 
-      res.status(200).json({ 
-        message: "Enviado com sucesso para o Cloud Storage!",
-        url: `gs://${BUCKET_NAME}/${destFileName}`
-      });
+      res.status(200).json({ message: "Sucesso no Cloud Storage!" });
 
     } catch (err: any) {
       console.error("❌ [TI ERROR]:", err.message);
       if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-      
-      // Como o Cloud Storage usa HTTPS, se der erro aqui, o log vai te dizer exatamente por que (ex: permissão negada)
-      res.status(500).send(`Falha no Storage: ${err.message}`);
+      res.status(500).send(`Erro de TI: ${err.message}`);
     }
   });
 }
