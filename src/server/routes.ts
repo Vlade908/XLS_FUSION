@@ -16,7 +16,7 @@ export function registerRoutes(app: Express) {
       // 1. Configura o Cliente do Storage (Ele lê o JSON automaticamente se o GOOGLE_APPLICATION_CREDENTIALS estiver setado)
       const storage = new Storage({
         keyFilename: path.join(process.cwd(), 'google-credentials.json'),
-        projectId: 'SEU-PROJECT-ID-AQUI' // <-- TROQUE PELO ID DO SEU PROJETO NO GOOGLE
+        projectId: 'teste-f9d4e' // <-- TROQUE PELO ID DO SEU PROJETO NO GOOGLE
       });
 
       const BUCKET_NAME = 'auditoria-xls-fusion'; // <-- TROQUE PELO NOME DO BUCKET QUE VOCÊ CRIOU
