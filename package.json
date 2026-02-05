@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.18.0",
     "@supabase/supabase-js": "^2.57.4",
     "@types/express": "^5.0.6",
     "concurrently": "^9.2.1",
