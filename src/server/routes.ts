@@ -1,22 +1,47 @@
-// src/server/routes.ts
 import { Express } from 'express';
-import { upload } from './gridfs.js'; // Adicione .js
+import multer from 'multer';
+import { conn } from './gridfs.js';
+import mongoose from 'mongoose';
+
+// Usamos memória temporária para evitar o erro de Buffer do Bolt
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 export function registerRoutes(app: Express) {
-  // Rota de Upload
-  app.post('/api/upload-planilha', (req, res) => {
-    upload.single('file')(req, res, (err) => {
-      if (err) {
-        console.error("Erro Multer:", err);
-        return res.status(500).json({ error: "Erro no processamento do arquivo fatiado." });
-      }
-      
+  app.post('/api/upload-planilha', upload.single('file'), async (req, res) => {
+    try {
       if (!req.file) {
-        return res.status(400).json({ error: "Nenhum arquivo chegou ao servidor." });
+        return res.status(400).json({ error: "Arquivo não recebido." });
       }
 
-      console.log("✅ Planilha fatiada e salva no GridFS:", req.file.filename);
-      res.status(200).json({ message: "Upload concluído!", id: req.file.id });
-    });
+      // 1. Criar o Bucket do GridFS manualmente
+      const bucket = new mongoose.mongo.GridFSBucket(conn.db, {
+        bucketName: 'planilhas_auditoria'
+      });
+
+      // 2. Criar Stream de upload a partir do buffer em memória
+      const uploadStream = bucket.openUploadStream(req.file.originalname, {
+        metadata: { 
+          worker: req.body.workerName,
+          date: new Date()
+        }
+      });
+
+      // 3. Escrever o arquivo no Firestore
+      uploadStream.end(req.file.buffer);
+
+      uploadStream.on('finish', () => {
+        res.status(200).json({ message: "Upload concluído com sucesso!" });
+      });
+
+      uploadStream.on('error', (err) => {
+        throw err;
+      });
+
+    } catch (err: any) {
+      console.error("Erro no processamento:", err);
+      // Evita enviar o objeto de erro inteiro para não causar DataCloneError
+      res.status(500).json({ error: "Erro interno no servidor do Bolt." });
+    }
   });
 }
