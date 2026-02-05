@@ -17,8 +17,10 @@ app.get('/', (req, res) => {
 registerRoutes(app);
 
 // Rota de teste para sabermos se o backend está ok
+// No src/server/index.ts
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'Backend XLFusion está operando!' });
+  // Usamos status 200 puro primeiro para o Bolt não se perder com Buffers complexos
+  res.status(200).end(); 
 });
 
 const PORT = 5000;
