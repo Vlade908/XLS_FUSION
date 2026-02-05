@@ -17,10 +17,14 @@ export function registerRoutes(app: Express) {
 
       console.log("📡 [TI] Tentando handshake SCRAM-SHA-256...");
 
+      // Ajuste de agressividade para redes instáveis/bloqueadas
       const client = new MongoClient(mongoURI, {
-        serverSelectionTimeoutMS: 10000,
-        connectTimeoutMS: 10000,
-        family: 4 // Evita problemas de DNS no Bolt
+        serverSelectionTimeoutMS: 20000, // Aumentamos para 20s
+        connectTimeoutMS: 20000,
+        tls: true,
+        tlsInsecure: true, // Ignora erros de certificado que o Bolt pode causar
+        family: 4,
+        maxPoolSize: 1
       });
 
       await client.connect();
