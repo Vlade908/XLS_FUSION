@@ -1,46 +1,54 @@
+// src/server/gridfs.ts
 import mongoose from 'mongoose';
 import { GoogleAuth } from 'google-auth-library';
+import path from 'path';
 
-// Substitua pelos seus dados reais do console
-const DATABASE_UID = "seu-uid-aqui";
-const LOCATION = "southamerica-east1"; // ou o seu local
-const DATABASE_ID = "xlfusion";
+// 1. Apontamos para o arquivo de chave que você criou
+process.env.GOOGLE_APPLICATION_CREDENTIALS = path.join(process.cwd(), 'google-credentials.json');
+
+const DATABASE_UID = "SEU_UID_AQUI"; 
+const LOCATION = "SEU_LOCAL_AQUI"; // ex: southamerica-east1
+const DATABASE_ID = "(default)"; // ou o ID do seu banco
 
 const auth = new GoogleAuth({
   scopes: 'https://www.googleapis.com/auth/cloud-platform'
 });
 
-async function getConnectionString() {
-  // Isso busca automaticamente as credenciais do ambiente (ADC)
-  const client = await auth.getClient();
-  const token = await client.getAccessToken();
-  
-  // A URL deve seguir o formato da documentação: UID.LOCATION.firestore.goog
-  // Usamos o token como mecanismo de autenticação OIDC
-  return `mongodb://EXTERNAL_CALLBACK_USER@${DATABASE_UID}.${LOCATION}.firestore.goog:443/${DATABASE_ID}?authMechanism=MONGODB-OIDC&ssl=true&retryWrites=false`;
+async function connectToFirestore() {
+  try {
+    const client = await auth.getClient();
+    const tokenResponse = await client.getAccessToken();
+    const accessToken = tokenResponse.token;
+
+    // Formato de URI para OIDC conforme a documentação do Google
+    const uri = `mongodb://EXTERNAL_CALLBACK_USER@${DATABASE_UID}.${LOCATION}.firestore.goog:443/${DATABASE_ID}?authMechanism=MONGODB-OIDC&ssl=true&retryWrites=false`;
+
+    return { uri, accessToken };
+  } catch (error) {
+    console.error("Erro ao obter token do Google:", error);
+    throw error;
+  }
 }
 
-// Criamos a conexão de forma assíncrona
 const conn = mongoose.createConnection();
 
-getConnectionString().then(uri => {
+connectToFirestore().then(({ uri, accessToken }) => {
   conn.openUri(uri, {
-    // Esta função simula o "onRequest" do código Java
+    // @ts-ignore - Propriedade específica do driver para o callback do Google
     authMechanismProperties: {
-      ENVIRONMENT: 'test', // No Bolt.new usamos modo teste/local
+      ENVIRONMENT: 'test',
       OIDC_CALLBACK: async () => {
         const client = await auth.getClient();
-        const tokenResponse = await client.getAccessToken();
+        const response = await client.getAccessToken();
         return {
-          accessToken: tokenResponse.token,
+          accessToken: response.token,
           expiresInSeconds: 3600
         };
       }
     }
+  }).then(() => {
+    console.log("✅ XLFusion Conectado ao Firestore Enterprise da Prefeitura!");
   });
 });
-
-conn.on('error', err => console.error("❌ Erro Firestore:", err));
-conn.once('open', () => console.log("✅ Conectado via Google OAuth!"));
 
 export { conn };
