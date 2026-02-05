@@ -23,12 +23,10 @@ const conn = mongoose.createConnection();
 const mongoOptions = {
   authMechanismProperties: {
     ENVIRONMENT: 'test',
-    OIDC_CALLBACK: async () => {
-      const client = await auth.getClient();
-      const res = await client.getAccessToken();
-      return { accessToken: res.token, expiresInSeconds: 3600 };
-    }
-  }
+    OIDC_CALLBACK: getGoogleAccessToken
+  },
+  serverSelectionTimeoutMS: 5000, // Desiste rápido para não travar o Bolt
+  family: 4                       // Força IPv4 para evitar problemas de DNS no container
 };
 
 // 3. ABRIR A CONEXÃO (Sem travar o boot)
