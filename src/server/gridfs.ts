@@ -7,6 +7,13 @@ import crypto from 'crypto';
 
 let conn: mongoose.Connection;
 
+if ((global as any).mongooseConn) {
+  conn = (global as any).mongooseConn;
+} else {
+  conn = mongoose.createConnection();
+  (global as any).mongooseConn = conn;
+}
+
 // 1. Configuração de Credenciais
 process.env.GOOGLE_APPLICATION_CREDENTIALS = path.join(process.cwd(), 'google-credentials.json');
 
