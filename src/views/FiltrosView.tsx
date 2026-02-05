@@ -36,9 +36,9 @@ export default function FiltrosView() {
     setUploading(true);
     setProgress(0);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('workerName', 'Alisson');
+   const formData = new FormData();
+formData.append('file', file);
+formData.append('workerName', 'Nome Do Auditor Real'); // Aqui você pega de um estado (state)
 
     // Adicione isso para "forçar" a barra a subir devagar e te dar feedback visual
   let fakeProgress = 0;
