@@ -17,7 +17,7 @@ const auth = new GoogleAuth({
 });
 
 // 2. URI de Conexão (Conforme documentação oficial que você enviou)
-const mongoURI = `mongodb://EXTERNAL_CALLBACK_USER@${DATABASE_UID}.${LOCATION}.firestore.goog:443/${DATABASE_ID}?authMechanism=MONGODB-OIDC&ssl=true&retryWrites=false`;
+const mongoURI = `mongodb://${DATABASE_UID}.${LOCATION}.firestore.goog:443/${DATABASE_ID}?authMechanism=MONGODB-OIDC&ssl=true&retryWrites=false`;
 
 // 3. Função para gerar o token do Google Cloud
 const fetchGoogleToken = async () => {
