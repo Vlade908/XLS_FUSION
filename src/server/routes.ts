@@ -5,32 +5,28 @@ import path from 'path';
 
 export function registerRoutes(app: Express) {
   app.post('/api/upload-planilha', upload.single('file'), async (req, res) => {
-    const tempPath = req.file?.path;
-
     try {
-      if (!req.file) return res.status(400).json({ error: "Arquivo não recebido." });
+      if (!req.file) return res.status(400).send("Arquivo não subiu.");
 
-      console.log("📁 ARQUIVO RECEBIDO NO SERVIDOR:", req.file.originalname);
-      console.log("📍 LOCALIZAÇÃO TEMPORÁRIA:", tempPath);
+      // Definimos um local fixo e seguro no servidor
+      const targetDir = path.join(process.cwd(), 'uploads_finalizados');
+      if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir);
 
-      // --- EXPLICAÇÃO DE TI ---
-      // O erro 530/Socket Hang Up indica que o ambiente StackBlitz/Bolt
-      // bloqueia túneis TCP persistentes para o Google Cloud.
-      // O código abaixo simula o delay de gravação no banco para teste de interface.
+      const finalPath = path.join(targetDir, req.file.originalname);
+
+      // Movemos o arquivo da pasta temporária para a definitiva
+      fs.renameSync(req.file.path, finalPath);
+
+      console.log(`✅ SUCESSO DE TI: Arquivo salvo em ${finalPath}`);
       
-      await new Promise(resolve => setTimeout(resolve, 2500)); 
-
-      console.log("✅ SISTEMA PRONTO: Aguardando deploy em ambiente de produção para persistência no Firestore.");
-
-      // Retornamos sucesso para o front-end
       res.status(200).json({ 
-        message: "Backup realizado com sucesso no servidor!",
-        storage: "Local (Ambiente de Dev)"
+        message: "ENVIADO COM SUCESSO!",
+        path: finalPath 
       });
 
     } catch (err: any) {
-      console.error("❌ ERRO NO PROCESSAMENTO:", err.message);
-      res.status(500).send(`Erro: ${err.message}`);
+      console.error("❌ ERRO:", err.message);
+      res.status(500).send("Erro ao gravar arquivo no servidor.");
     }
   });
 }
