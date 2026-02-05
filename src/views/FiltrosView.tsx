@@ -40,6 +40,14 @@ export default function FiltrosView() {
     formData.append('file', file);
     formData.append('workerName', 'Alisson');
 
+    // Adicione isso para "forçar" a barra a subir devagar e te dar feedback visual
+  let fakeProgress = 0;
+  const interval = setInterval(() => {
+    fakeProgress += 5;
+    if (fakeProgress <= 90) setProgress(fakeProgress); // Vai até 90% e espera o servidor
+    else clearInterval(interval);
+  }, 100);
+
     const xhr = new XMLHttpRequest();
     
     // Monitor de Progresso Real
