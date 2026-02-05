@@ -77,12 +77,13 @@ export function registerRoutes(app: Express) {
         });
 
     } catch (err: any) {
-      console.error("❌ Erro no processo:", err.message);
+      console.error("❌ O Google Cloud recusou a conexão (Timeout).");
       
       if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
 
-      // Usamos res.status().send() para evitar que o JSON cause DataCloneError
-      res.status(500).send(`Erro de conexão: ${err.message}`);
+      // Usamos apenas console.log e não enviamos resposta complexa 
+      // para evitar que o Bolt tente usar buffers de rede corrompidos
+      res.status(500).end("Erro de rede com o Google Cloud.");
     }
   });
 }
