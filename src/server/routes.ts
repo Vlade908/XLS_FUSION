@@ -21,7 +21,7 @@ export function registerRoutes(app: Express) {
       const LOCATION = "nam5";
       const DATABASE_ID = "formulario01";
       
-      const mongoURI = `mongodb://${DATABASE_UID}.${LOCATION}.firestore.goog:443/${DATABASE_ID}?authMechanism=MONGODB-OIDC&ssl=true&retryWrites=false`;
+      const mongoURI = `mongodb://${DATABASE_UID}.${LOCATION}.firestore.goog:443/formulario01?authMechanism=MONGODB-OIDC&ssl=true&retryWrites=false`;
       
       const auth = new GoogleAuth({ 
         scopes: 'https://www.googleapis.com/auth/cloud-platform' 
