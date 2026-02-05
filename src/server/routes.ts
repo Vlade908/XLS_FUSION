@@ -19,7 +19,7 @@ export function registerRoutes(app: Express) {
         projectId: 'SEU-PROJECT-ID-AQUI' // <-- TROQUE PELO ID DO SEU PROJETO NO GOOGLE
       });
 
-      const BUCKET_NAME = 'NOME-DO-SEU-BUCKET-AQUI'; // <-- TROQUE PELO NOME DO BUCKET QUE VOCÊ CRIOU
+      const BUCKET_NAME = 'auditoria-xls-fusion'; // <-- TROQUE PELO NOME DO BUCKET QUE VOCÊ CRIOU
       const destFileName = `auditorias/${Date.now()}-${req.file.originalname}`;
 
       console.log(`📡 [TI] Enviando para o Bucket: ${BUCKET_NAME}...`);
