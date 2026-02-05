@@ -20,7 +20,7 @@ export function registerRoutes(app: Express) {
       const LOCATION = "nam5";
       
       // URI formatada exatamente para o Firestore MongoDB Compatibility
-      const mongoURI = "mongodb+srv://vlade908_db_user:<db_password>@cluster0.uppexhj.mongodb.net/?appName=Cluster0";
+      const mongoURI = "mongodb+srv://vlade908_db_user:<oq8JUemftb6vyTDE>@cluster0.uppexhj.mongodb.net/?appName=Cluster0";
       
       const auth = new GoogleAuth({ 
         scopes: 'https://www.googleapis.com/auth/cloud-platform' 
