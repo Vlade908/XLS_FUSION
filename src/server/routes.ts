@@ -6,7 +6,6 @@ import { GoogleAuth } from 'google-auth-library';
 
 export function registerRoutes(app: Express) {
   app.post('/api/upload-planilha', upload.single('file'), async (req, res) => {
-    // Referência do arquivo para deletar depois, mesmo em caso de erro
     const tempPath = req.file?.path;
 
     try {
@@ -14,20 +13,22 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ error: "Arquivo não recebido." });
       }
 
-      console.log("📁 Arquivo recebido com segurança no Bolt:", tempPath);
+      console.log("📁 Arquivo em disco virtual:", tempPath);
 
-      // Dados do Firestore Enterprise (vistos na sua imagem)
+      // IDs extraídos das suas imagens do console
       const DATABASE_UID = "formulario01"; 
       const LOCATION = "nam5";
-      const DATABASE_ID = "formulario01";
       
-      const mongoURI = `mongodb://${DATABASE_UID}.${LOCATION}.firestore.goog:443/formulario01?authMechanism=MONGODB-OIDC&ssl=true&retryWrites=false`;
+      // URI formatada exatamente para o Firestore MongoDB Compatibility
+      const mongoURI = `mongodb://${DATABASE_UID}.${LOCATION}.firestore.goog:443/${DATABASE_UID}?authMechanism=MONGODB-OIDC&ssl=true&retryWrites=false`;
       
       const auth = new GoogleAuth({ 
         scopes: 'https://www.googleapis.com/auth/cloud-platform' 
       });
       
-      // Criando a conexão com timeouts curtos para evitar o erro de ArrayBuffer no Bolt
+      console.log("🔗 Tentando conexão com Firestore Enterprise...");
+
+      // Conexão com limites rígidos para o Bolt não 'explodir' a memória
       const conn = await mongoose.createConnection(mongoURI, {
         authMechanismProperties: {
           ENVIRONMENT: 'test',
@@ -40,10 +41,13 @@ export function registerRoutes(app: Express) {
             };
           }
         },
-        serverSelectionTimeoutMS: 8000, // Desiste em 8s para não travar o Bolt
-        connectTimeoutMS: 8000,
-        family: 4 // Força IPv4 (mais estável no ambiente de container)
+        serverSelectionTimeoutMS: 10000, // 10 segundos de limite
+        connectTimeoutMS: 10000,
+        family: 4, // Força IPv4 (essencial para evitar timeout no Bolt)
+        retryWrites: false
       }).asPromise();
+
+      console.log("✅ Conectado ao banco!");
 
       const bucket = new mongoose.mongo.GridFSBucket(conn.db, { 
         bucketName: 'planilhas_auditoria' 
@@ -56,34 +60,29 @@ export function registerRoutes(app: Express) {
         }
       });
       
-      // Pipe do arquivo do "disco" virtual para o Firestore
+      // Pipe do arquivo temporário para o banco
       fs.createReadStream(tempPath!).pipe(uploadStream)
         .on('error', (streamErr) => {
-          console.error("❌ Erro no Stream de upload:", streamErr);
+          console.error("❌ Erro no Stream:", streamErr);
           throw streamErr;
         })
         .on('finish', () => {
-          console.log("✅ Upload concluído para o Google Cloud!");
-          // Limpa o arquivo temporário após o sucesso
+          console.log("🚀 Planilha salva com sucesso!");
           if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
           
-          res.status(200).json({ message: "Sucesso no Google Cloud!" });
-          
-          // Fecha a conexão para liberar memória no Bolt
+          // Importante: Fecha a conexão para liberar o buffer do Bolt
           conn.close();
+          
+          res.status(200).json({ message: "Sucesso no Google Cloud!" });
         });
 
     } catch (err: any) {
-      console.error("❌ Erro no processo de upload:", err.message);
+      console.error("❌ Erro no processo:", err.message);
       
-      // Limpa o arquivo temporário em caso de falha
       if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
 
-      // Resposta amigável para o front-end
-      res.status(500).json({ 
-        error: "O servidor recebeu o arquivo, mas a conexão com o Google Cloud falhou.",
-        details: err.message 
-      });
+      // Usamos res.status().send() para evitar que o JSON cause DataCloneError
+      res.status(500).send(`Erro de conexão: ${err.message}`);
     }
   });
 }
