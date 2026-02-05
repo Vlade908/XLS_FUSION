@@ -32,6 +32,8 @@ const fetchGoogleToken = async () => {
 // 4. Propriedades de Autenticação OIDC
 const authProps = {
   authMechanismProperties: {
+    // Para ambientes de desenvolvimento como Bolt.new, usamos 'test'
+    // Mas garantimos que a URI esteja limpa de usuários manuais
     ENVIRONMENT: 'test',
     OIDC_CALLBACK: fetchGoogleToken
   }
