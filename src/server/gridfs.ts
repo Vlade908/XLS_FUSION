@@ -1,47 +1,46 @@
 import mongoose from 'mongoose';
-import multer from 'multer';
-import { GridFsStorage } from 'multer-gridfs-storage';
-import crypto from 'crypto';
-import path from 'path';
+import { GoogleAuth } from 'google-auth-library';
 
-// 1. Sua URI do Firestore Enterprise (Modo MongoDB)
-const mongoURI = "mongodb://enzoalves:0wr4Gc6R_4k44nCFPprHVLrpPiMDRIFhYeVCijjAVkzqAp1G@16158504-0949-4082-a560-03c600920d32.nam5.firestore.goog:443/formulario01?loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false";
+// Substitua pelos seus dados reais do console
+const DATABASE_UID = "seu-uid-aqui";
+const LOCATION = "southamerica-east1"; // ou o seu local
+const DATABASE_ID = "xlfusion";
 
-// 2. Criar a conexão
-const conn = mongoose.createConnection(mongoURI);
+const auth = new GoogleAuth({
+  scopes: 'https://www.googleapis.com/auth/cloud-platform'
+});
 
-// 3. Configurar o armazenamento do GridFS
-const storage = new GridFsStorage({
-  url: mongoURI,
-  options: { useNewUrlParser: true, useUnifiedTopology: true },
-  file: (req, file) => {
-    return new Promise((resolve, reject) => {
-      // Criamos um nome único para evitar conflitos
-      crypto.randomBytes(16, (err, buf) => {
-        if (err) return reject(err);
-        const filename = buf.toString('hex') + path.extname(file.originalname);
-        
-        const fileInfo = {
-          filename: filename,
-          bucketName: 'planilhas_auditoria', // Nome das coleções no Firestore
-          metadata: {
-            originalName: file.originalname,
-            uploadedBy: req.body.workerName || 'Anonimo',
-            uploadDate: new Date()
-          }
+async function getConnectionString() {
+  // Isso busca automaticamente as credenciais do ambiente (ADC)
+  const client = await auth.getClient();
+  const token = await client.getAccessToken();
+  
+  // A URL deve seguir o formato da documentação: UID.LOCATION.firestore.goog
+  // Usamos o token como mecanismo de autenticação OIDC
+  return `mongodb://EXTERNAL_CALLBACK_USER@${DATABASE_UID}.${LOCATION}.firestore.goog:443/${DATABASE_ID}?authMechanism=MONGODB-OIDC&ssl=true&retryWrites=false`;
+}
+
+// Criamos a conexão de forma assíncrona
+const conn = mongoose.createConnection();
+
+getConnectionString().then(uri => {
+  conn.openUri(uri, {
+    // Esta função simula o "onRequest" do código Java
+    authMechanismProperties: {
+      ENVIRONMENT: 'test', // No Bolt.new usamos modo teste/local
+      OIDC_CALLBACK: async () => {
+        const client = await auth.getClient();
+        const tokenResponse = await client.getAccessToken();
+        return {
+          accessToken: tokenResponse.token,
+          expiresInSeconds: 3600
         };
-        resolve(fileInfo);
-      });
-    });
-  }
+      }
+    }
+  });
 });
 
-conn.on('error', (err) => {
-  console.error("ERRO DE CONEXÃO FIRESTORE/MONGO:", err);
-});
+conn.on('error', err => console.error("❌ Erro Firestore:", err));
+conn.once('open', () => console.log("✅ Conectado via Google OAuth!"));
 
-conn.once('open', () => {
-  console.log("CONECTADO COM SUCESSO AO FIRESTORE ENTERPRISE!");
-});
-
-export const upload = multer({ storage });
+export { conn };
