@@ -9,7 +9,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 app.get('/', (req, res) => {
-  res.send('API XLFusion operando na porta 5000. Use a porta 5173 para o Front-end.');
+  // Use res.json em vez de res.send para evitar problemas de Buffer no Bolt
+  res.json({ message: "Servidor de API Ativo" });
 });
 
 // REGISTRO DAS ROTAS
