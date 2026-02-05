@@ -2,7 +2,6 @@ import { Express } from 'express';
 import { upload } from './gridfs.js';
 import mongoose from 'mongoose';
 import fs from 'fs';
-import { GoogleAuth } from 'google-auth-library';
 
 export function registerRoutes(app: Express) {
   app.post('/api/upload-planilha', upload.single('file'), async (req, res) => {
@@ -13,41 +12,20 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ error: "Arquivo não recebido." });
       }
 
-      console.log("📁 Arquivo em disco virtual:", tempPath);
+      console.log("📁 Arquivo recebido no Bolt:", req.file.originalname);
 
-      // IDs extraídos das suas imagens do console
-      const DATABASE_UID = "formulario01"; 
-      const LOCATION = "nam5";
-      
-      // URI formatada exatamente para o Firestore MongoDB Compatibility
-      const mongoURI = `mongodb+srv://vlade908_db_user:aScDeGvPyqOiKlFo@cluster0.uppexhj.mongodb.net/?appName=Cluster0`;
-      
-      const auth = new GoogleAuth({ 
-        scopes: 'https://www.googleapis.com/auth/cloud-platform' 
-      });
-      
-      console.log("🔗 Tentando conexão com Firestore Enterprise...");
+      // SUA URL DO MONGODB ATLAS
+      const mongoURI = "mongodb+srv://vlade908_db_user:aScDeGvPyqOiKlFo@cluster0.uppexhj.mongodb.net/xls_fusion_db?retryWrites=true&w=majority&appName=Cluster0";
 
-      // Conexão com limites rígidos para o Bolt não 'explodir' a memória
+      console.log("🔗 Conectando ao MongoDB Atlas...");
+
+      // Conexão simples para teste no Atlas
       const conn = await mongoose.createConnection(mongoURI, {
-        authMechanismProperties: {
-          ENVIRONMENT: 'test',
-          OIDC_CALLBACK: async () => {
-            const client = await auth.getClient();
-            const tokenResponse = await client.getAccessToken();
-            return { 
-              accessToken: tokenResponse.token, 
-              expiresInSeconds: 3600 
-            };
-          }
-        },
-        serverSelectionTimeoutMS: 10000, // 10 segundos de limite
-        connectTimeoutMS: 10000,
-        family: 4, // Força IPv4 (essencial para evitar timeout no Bolt)
-        retryWrites: false
+        serverSelectionTimeoutMS: 10000,
+        family: 4
       }).asPromise();
 
-      console.log("✅ Conectado ao banco!");
+      console.log("✅ Conectado ao MongoDB Atlas!");
 
       const bucket = new mongoose.mongo.GridFSBucket(conn.db, { 
         bucketName: 'planilhas_auditoria' 
@@ -55,35 +33,32 @@ export function registerRoutes(app: Express) {
 
       const uploadStream = bucket.openUploadStream(req.file.originalname, {
         metadata: {
-          worker: req.body.workerName || 'Desconhecido',
-          uploadDate: new Date()
+          worker: req.body.workerName || 'Alisson',
+          uploadDate: new Date(),
+          ambiente: 'Desenvolvimento Atlas'
         }
       });
       
-      // Pipe do arquivo temporário para o banco
+      // Pipe do arquivo temporário para o Atlas
       fs.createReadStream(tempPath!).pipe(uploadStream)
         .on('error', (streamErr) => {
           console.error("❌ Erro no Stream:", streamErr);
           throw streamErr;
         })
         .on('finish', () => {
-          console.log("🚀 Planilha salva com sucesso!");
+          console.log("🚀 Planilha salva com sucesso no ATLAS!");
           if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
           
-          // Importante: Fecha a conexão para liberar o buffer do Bolt
           conn.close();
-          
-          res.status(200).json({ message: "Sucesso no Google Cloud!" });
+          res.status(200).json({ message: "Sucesso! Arquivo salvo no MongoDB Atlas." });
         });
 
     } catch (err: any) {
-      console.error("❌ O Google Cloud recusou a conexão (Timeout).");
-      
+      console.error("❌ Erro no processo Atlas:", err.message);
       if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-
-      // Usamos apenas console.log e não enviamos resposta complexa 
-      // para evitar que o Bolt tente usar buffers de rede corrompidos
-      res.status(500).end("Erro de rede com o Google Cloud.");
+      
+      // Resposta limpa para não travar o buffer do Bolt
+      res.status(500).send(`Erro: ${err.message}`);
     }
   });
 }
