@@ -8,31 +8,34 @@ export default function AuditorUpload() {
     if (e.target.files) setFile(e.target.files[0]);
   };
 
-  const sendToServer = async () => {
-    if (!file) return alert("Selecione um arquivo!");
+const sendToServer = async () => {
+  if (!file) return alert("Selecione um arquivo!");
 
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('workerName', 'Alisson'); // Poderia vir de um estado de login
+  setUploading(true);
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('workerName', 'Alisson');
 
-    try {
-      const response = await fetch('/api/upload-planilha', {
-        // Verifique a barra /
-        method: 'POST',
-        body: formData,
-      });
+  try {
+    const response = await fetch('/api/upload-planilha', {
+      method: 'POST',
+      // IMPORTANTE: Remova o 'headers' que define Content-Type. 
+      // O navegador fará isso automaticamente com o boundary correto.
+      body: formData,
+    });
 
-      if (response.ok) {
-        alert("Planilha armazenada com sucesso no Firestore!");
-        setFile(null);
-      }
-    } catch (error) {
-      console.error("Erro no upload:", error);
-    } finally {
-      setUploading(false);
+    if (response.ok) {
+      alert("Sucesso!");
+    } else {
+      const errorData = await response.json();
+      alert(`Erro: ${errorData.error || 'Falha no servidor'}`);
     }
-  };
+  } catch (error) {
+    console.error("Erro no fetch:", error);
+  } finally {
+    setUploading(false);
+  }
+};
 
   return (
     <div className="p-10 bg-white rounded-[3rem] shadow-2xl border border-slate-100 text-center">
