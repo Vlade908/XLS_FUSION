@@ -1,11 +1,10 @@
 import { Express } from 'express';
 import multer from 'multer';
-import { conn } from './gridfs.js';
+import { conn } from './gridfs.js'; // Importação do conn corrigida
 import mongoose from 'mongoose';
 
-// Usamos memória temporária para evitar o erro de Buffer do Bolt
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 
 export function registerRoutes(app: Express) {
   app.post('/api/upload-planilha', upload.single('file'), async (req, res) => {
@@ -14,12 +13,15 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ error: "Arquivo não recebido." });
       }
 
-      // 1. Criar o Bucket do GridFS manualmente
+      // Verificação de segurança para o Bolt
+      if (!conn.db) {
+        return res.status(500).json({ error: "O banco de dados ainda está conectando. Tente em 5 segundos." });
+      }
+
       const bucket = new mongoose.mongo.GridFSBucket(conn.db, {
         bucketName: 'planilhas_auditoria'
       });
 
-      // 2. Criar Stream de upload a partir do buffer em memória
       const uploadStream = bucket.openUploadStream(req.file.originalname, {
         metadata: { 
           worker: req.body.workerName,
@@ -27,21 +29,16 @@ export function registerRoutes(app: Express) {
         }
       });
 
-      // 3. Escrever o arquivo no Firestore
       uploadStream.end(req.file.buffer);
 
       uploadStream.on('finish', () => {
-        res.status(200).json({ message: "Upload concluído com sucesso!" });
-      });
-
-      uploadStream.on('error', (err) => {
-        throw err;
+        console.log("✅ Planilha salva no Firestore via GridFS");
+        res.status(200).json({ message: "Sucesso!" });
       });
 
     } catch (err: any) {
       console.error("Erro no processamento:", err);
-      // Evita enviar o objeto de erro inteiro para não causar DataCloneError
-      res.status(500).json({ error: "Erro interno no servidor do Bolt." });
+      res.status(500).json({ error: "Falha interna no processamento." });
     }
   });
 }
