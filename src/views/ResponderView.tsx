@@ -15,6 +15,7 @@ export default function ResponderView() {
   const [currentStep, setCurrentStep] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // --- Lógica de Excel mantida integralmente ---
   const findSheet = (wb: XLSX.WorkBook, target: string) => {
     const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     return wb.SheetNames.find(n => normalize(n) === normalize(target));
@@ -87,34 +88,27 @@ export default function ResponderView() {
     
     responderQuestions.forEach((q, idx) => {
       const ans = responderAnswers[idx];
-      
-      // LOGICA PARA CHECKBOX (Múltipla escolha por linha)
       if (q.type === 'check') {
         q.rows.forEach(row => {
           const isSelected = Array.isArray(ans) && ans.includes(row.rowIndex);
           ws[XLSX.utils.encode_cell({ r: row.rowIndex, c: 7 })] = { v: isSelected ? 1 : 0, t: 'n' };
         });
       } 
-      // LOGICA PARA ALTERNATIVA E SIM/NAO/OUTRO (Escolha única por linha)
       else if (['alternativa', 'simnaooutro'].includes(q.type)) {
         q.rows.forEach(row => {
           const isSelected = ans === row.rowIndex;
-          // Grava o texto da opção selecionada (exResp) se marcado, ou vazio se não marcado
           ws[XLSX.utils.encode_cell({ r: row.rowIndex, c: 7 })] = { v: isSelected ? row.exResp : "", t: 's' };
         });
       } 
-      // LOGICA PARA SIM/NAO (Botões fixos)
       else if (q.type === 'simnao') {
         const cellRef = XLSX.utils.encode_cell({ r: q.rows[0].rowIndex, c: 7 });
         ws[cellRef] = { v: ans || "", t: 's' };
       } 
-      // LOGICA PARA RESPOSTA POR LINHA
       else if (q.type === 'respostaescritaporlinha') {
         q.rows.forEach(row => {
           ws[XLSX.utils.encode_cell({ r: row.rowIndex, c: 7 })] = { v: smartClean(ans?.[row.rowIndex] || ""), t: 's' };
         });
       } 
-      // LOGICA PARA TEXTO, DATA, LINK
       else {
         ws[XLSX.utils.encode_cell({ r: q.rows[0].rowIndex, c: 7 })] = { v: smartClean(ans || ""), t: 's' };
       }
@@ -130,29 +124,28 @@ export default function ResponderView() {
     : responderAnswers[currentStep] !== undefined && responderAnswers[currentStep] !== "";
 
   return (
-    <div className="min-h-screen bg-[#F0F2F5] flex flex-col items-center p-6 relative overflow-x-hidden font-sans text-slate-800">
+    <div className="min-h-screen bg-[#F0F2F5] flex flex-col items-center p-[2vw] relative overflow-x-hidden font-sans text-slate-800">
       
+      {/* Background decorativo adaptável */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-200/40 blur-[120px] rounded-full" />
-        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-200/30 blur-[120px] rounded-full" />
+        <div className="absolute top-0 left-1/4 w-[40vw] h-[40vw] bg-indigo-200/40 blur-[10vw] rounded-full" />
+        <div className="absolute bottom-0 right-1/4 w-[40vw] h-[40vw] bg-purple-200/30 blur-[10vw] rounded-full" />
       </div>
 
-      <div className="w-full max-w-4xl relative z-10 flex flex-col items-center mt-10">
+      <div className="w-full max-w-[95vw] lg:max-w-6xl relative z-10 flex flex-col items-center mt-[2vh]">
         
-        {/* ESTADO 1: IMPORTAÇÃO - AJUSTADO PARA 90% DE LARGURA */}
+        {/* ESTADO 1: IMPORTAÇÃO */}
         {!answerFile && !selectedResponder && (
-          <div className="w-full space-y-12 animate-in fade-in zoom-in duration-700 text-center flex flex-col items-center">
-            <h1 className="text-5xl font-black text-[#1e293b] leading-none uppercase tracking-tighter">
+          <div className="w-full space-y-[4vh] animate-in fade-in zoom-in duration-700 text-center flex flex-col items-center">
+            <h1 className="text-[clamp(2.5rem,8vw,5rem)] font-black text-[#1e293b] leading-tight uppercase tracking-tighter">
               Modo <span className="bg-gradient-to-r from-[#4f46e5] to-[#a855f7] bg-clip-text text-transparent italic">Resposta</span>
             </h1>
             
-            {/* Trocamos 'max-w-2xl' por 'w-[90%]' para expansão horizontal */}
-            <div className="bg-white/40 backdrop-blur-[30px] p-2 rounded-[4.5rem] border border-white shadow-2xl w-[90%]">
-              <div className="bg-white rounded-[4rem] p-12 md:p-16 flex flex-col items-center w-full">
-                <div className="w-24 h-24 bg-indigo-600 rounded-3xl flex items-center justify-center text-4xl shadow-xl mb-10 text-white">📩</div>
-                <h2 className="text-2xl font-black text-[#1e293b] uppercase italic mb-8 tracking-tight">IMPORTAR FORMULÁRIO</h2>
+            <div className="bg-white/40 backdrop-blur-[30px] p-[1vw] rounded-[3rem] lg:rounded-[4.5rem] border border-white shadow-2xl w-full max-w-3xl">
+              <div className="bg-white rounded-[2.5rem] lg:rounded-[4rem] p-[5vw] lg:p-16 flex flex-col items-center w-full">
+                <div className="w-20 h-20 lg:w-24 lg:h-24 bg-indigo-600 rounded-3xl flex items-center justify-center text-4xl shadow-xl mb-8 text-white">📩</div>
+                <h2 className="text-[clamp(1.2rem,3vw,1.8rem)] font-black text-[#1e293b] uppercase italic mb-8 tracking-tight">IMPORTAR FORMULÁRIO</h2>
                 
-                {/* Container full width para o FileCard preencher o espaço de 90% */}
                 <div className="w-full">
                   <FileCard 
                     title="Clique ou arraste o formulário aqui" 
@@ -168,34 +161,38 @@ export default function ResponderView() {
           </div>
         )}
 
+        {/* ESTADO 2: SELEÇÃO DE NOME */}
         {answerFile && !selectedResponder && !isResponderFinished && (
-            <div className="w-full space-y-12 animate-in fade-in slide-in-from-bottom-10 text-center">
-                <h2 className="text-4xl font-black text-[#1e293b] italic uppercase tracking-tighter">Selecione seu nome</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="w-full space-y-[4vh] animate-in fade-in slide-in-from-bottom-10 text-center">
+                <h2 className="text-[clamp(2rem,5vw,3rem)] font-black text-[#1e293b] italic uppercase tracking-tighter">Selecione seu nome</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
                     {employeeMapping.map(emp => (
                         <button key={emp.name} onClick={() => startResponderSession(emp.name)} 
-                            className="flex flex-col items-center gap-4 p-8 bg-white/80 backdrop-blur-md rounded-[2.5rem] border border-white shadow-xl hover:shadow-indigo-200 transition-all group">
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white shadow-lg text-xl" style={{ backgroundColor: emp.color }}>{emp.name[0]}</div>
-                            <span className="text-[11px] font-black text-[#64748b] uppercase tracking-widest">{emp.name}</span>
+                            className="flex flex-col items-center gap-4 p-6 lg:p-8 bg-white/80 backdrop-blur-md rounded-[2rem] lg:rounded-[2.5rem] border border-white shadow-xl hover:shadow-indigo-200 transition-all group">
+                            <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-2xl flex items-center justify-center font-black text-white shadow-lg text-xl" style={{ backgroundColor: emp.color }}>{emp.name[0]}</div>
+                            <span className="text-[10px] lg:text-[11px] font-black text-[#64748b] uppercase tracking-widest truncate w-full px-2">{emp.name}</span>
                         </button>
                     ))}
                 </div>
             </div>
         )}
 
+        {/* ESTADO 3: QUESTIONÁRIO ATIVO */}
         {selectedResponder && !isResponderFinished && q && (
-          <div className="w-full space-y-6 animate-in fade-in duration-700">
+          <div className="w-full space-y-[2vh] animate-in fade-in duration-700">
              
-             <div className="flex justify-between items-center bg-white/60 backdrop-blur-md p-6 rounded-[2.5rem] border border-white shadow-sm">
-                <div className="flex items-center gap-6">
-                  <button onClick={() => setSelectedResponder("")} className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#94a3b8] hover:text-red-500 transition-all border border-slate-100 shadow-sm text-2xl">✕</button>
-                  <h3 className="text-xl font-black text-[#1e293b] italic uppercase leading-none">{selectedResponder}</h3>
+             {/* Header do questionário */}
+             <div className="flex flex-wrap justify-between items-center bg-white/60 backdrop-blur-md p-4 lg:p-6 rounded-[2rem] border border-white shadow-sm gap-4">
+                <div className="flex items-center gap-4">
+                  <button onClick={() => setSelectedResponder("")} className="w-10 h-10 lg:w-12 lg:h-12 bg-white rounded-2xl flex items-center justify-center text-[#94a3b8] hover:text-red-500 transition-all border border-slate-100 shadow-sm text-xl lg:text-2xl">✕</button>
+                  <h3 className="text-lg lg:text-xl font-black text-[#1e293b] italic uppercase leading-none truncate max-w-[40vw]">{selectedResponder}</h3>
                 </div>
-                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest italic">Etapa {currentStep + 1} de {responderQuestions.length}</span>
+                <span className="text-[9px] lg:text-[10px] font-black text-indigo-500 uppercase tracking-widest italic">Etapa {currentStep + 1} de {responderQuestions.length}</span>
              </div>
 
-             <div className="w-full bg-white/40 backdrop-blur-md p-4 rounded-[2rem] border border-white shadow-sm">
-                <div ref={scrollRef} className="flex gap-1 h-3 items-center w-full">
+             {/* Barra de Progresso */}
+             <div className="w-full bg-white/40 backdrop-blur-md p-3 lg:p-4 rounded-[1.5rem] lg:rounded-[2rem] border border-white shadow-sm">
+                <div ref={scrollRef} className="flex gap-1 h-2 lg:h-3 items-center w-full">
                     {responderQuestions.map((_, idx) => (
                         <button key={idx} onClick={() => setCurrentStep(idx)}
                             className={`h-full flex-grow rounded-full transition-all duration-500
@@ -207,26 +204,27 @@ export default function ResponderView() {
                 </div>
              </div>
 
-             <div className="bg-white p-12 md:p-20 rounded-[4rem] border border-white shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-8 text-[#f1f5f9] font-black text-[120px] pointer-events-none italic leading-none select-none">
+             {/* Card da Questão */}
+             <div className="bg-white p-8 lg:p-16 rounded-[2.5rem] lg:rounded-[4rem] border border-white shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 lg:p-8 text-[#f1f5f9] font-black text-[clamp(4rem,15vw,10rem)] pointer-events-none italic leading-none select-none">
                     {currentStep + 1}
                 </div>
-                <div className="relative z-10 space-y-10">
-                  <span className="text-[10px] font-black bg-[#1e293b] text-white px-5 py-2 rounded-full uppercase tracking-[0.2em] shadow-lg">Quesito {q.id}</span>
+                <div className="relative z-10 space-y-6 lg:space-y-10">
+                  <span className="inline-block text-[9px] lg:text-[10px] font-black bg-[#1e293b] text-white px-4 py-1.5 rounded-full uppercase tracking-[0.2em] shadow-lg">Quesito {q.id}</span>
                   
-                  <h2 className="text-2xl md:text-3xl font-bold text-[#1e293b] leading-[1.3] italic tracking-tight italic">
+                  <h2 className="text-[clamp(1.2rem,4vw,2rem)] font-bold text-[#1e293b] leading-[1.3] italic tracking-tight">
                     "{q.fullText}"
                   </h2>
                   
-                  <div className="space-y-8 pt-6">
+                  <div className="space-y-4 lg:space-y-8 pt-4">
                     
                     {q.type === 'respostaescritaporlinha' && (
-                      <div className="space-y-10">
+                      <div className="space-y-6 lg:space-y-10">
                         {q.rows.map((row: any, index: number) => (
-                          <div key={row.rowIndex} className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-500" style={{ animationDelay: `${index * 100}ms` }}>
+                          <div key={row.rowIndex} className="space-y-2 lg:space-y-4 animate-in fade-in slide-in-from-left-4 duration-500">
                             <div className="flex items-center gap-3 ml-2">
-                              <div className="h-2 w-2 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(79,70,229,0.5)] flex-shrink-0" />
-                              <label className="text-[13px] font-black text-indigo-600 uppercase tracking-[0.1em] leading-tight">
+                              <div className="h-2 w-2 bg-indigo-500 rounded-full shadow-md flex-shrink-0" />
+                              <label className="text-[11px] lg:text-[13px] font-black text-indigo-600 uppercase tracking-[0.1em] leading-tight">
                                 {row.exResp}
                               </label>
                             </div>
@@ -237,7 +235,7 @@ export default function ResponderView() {
                                 ...p, 
                                 [currentStep]: { ...(p[currentStep] || {}), [row.rowIndex]: e.target.value }
                               }))}
-                              className="w-full p-6 pl-8 rounded-[2rem] border-2 border-transparent bg-slate-50/50 text-lg font-bold text-slate-700 outline-none focus:bg-white focus:border-indigo-200 focus:ring-8 shadow-inner"
+                              className="w-full p-4 lg:p-6 rounded-[1.5rem] lg:rounded-[2rem] border-2 border-transparent bg-slate-50/50 text-base lg:text-lg font-bold text-slate-700 outline-none focus:bg-white focus:border-indigo-200 shadow-inner"
                               placeholder="Digite sua resposta..."
                             />
                           </div>
@@ -246,7 +244,7 @@ export default function ResponderView() {
                     )}
 
                     {q.type === 'check' && (
-                      <div className="grid grid-cols-1 gap-4">
+                      <div className="grid grid-cols-1 gap-3">
                         {q.rows.filter((r:any)=>r.exResp).map(row => {
                           const answers = responderAnswers[currentStep] || [];
                           const active = answers.includes(row.rowIndex);
@@ -254,11 +252,11 @@ export default function ResponderView() {
                             <button key={row.rowIndex} onClick={() => {
                                 const next = active ? answers.filter((i:any) => i !== row.rowIndex) : [...answers, row.rowIndex];
                                 setResponderAnswers(p => ({...p, [currentStep]: next.length > 0 ? next : undefined}));
-                              }} className="group flex items-start p-6 rounded-[2rem] border-2 transition-all text-left bg-white/50 border-slate-100 hover:border-indigo-300">
-                              <div className={`w-7 h-7 rounded-xl border-4 flex-shrink-0 mr-4 mt-0.5 flex items-center justify-center transition-all ${active ? 'border-indigo-400 bg-indigo-600' : 'border-slate-200 bg-white'}`}>
-                                {active && <span className="text-white text-lg font-black">✓</span>}
+                              }} className="group flex items-center p-4 lg:p-6 rounded-[1.5rem] lg:rounded-[2rem] border-2 transition-all text-left bg-white/50 border-slate-100 hover:border-indigo-300">
+                              <div className={`w-6 h-6 lg:w-7 lg:h-7 rounded-xl border-4 flex-shrink-0 mr-4 flex items-center justify-center transition-all ${active ? 'border-indigo-400 bg-indigo-600' : 'border-slate-200 bg-white'}`}>
+                                {active && <span className="text-white text-base lg:text-lg font-black">✓</span>}
                               </div>
-                              <span className={`font-black text-lg tracking-tight leading-snug ${active ? 'text-indigo-900' : 'text-slate-500'}`}>{row.exResp}</span>
+                              <span className={`font-black text-base lg:text-lg tracking-tight leading-snug ${active ? 'text-indigo-900' : 'text-slate-500'}`}>{row.exResp}</span>
                             </button>
                           );
                         })}
@@ -267,25 +265,25 @@ export default function ResponderView() {
 
                     {q.type === 'data' && (
                       <div className="relative">
-                        <input type="date" value={responderAnswers[currentStep] || ""} onChange={(e) => setResponderAnswers(p => ({...p, [currentStep]: e.target.value}))} className="w-full p-8 rounded-[2.5rem] border-4 border-indigo-50 bg-[#f8fafc] text-2xl font-black outline-none focus:bg-white focus:border-indigo-400 transition-all text-slate-700 shadow-inner" />
-                        <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none text-2xl">📅</div>
+                        <input type="date" value={responderAnswers[currentStep] || ""} onChange={(e) => setResponderAnswers(p => ({...p, [currentStep]: e.target.value}))} className="w-full p-6 lg:p-8 rounded-[1.5rem] lg:rounded-[2.5rem] border-4 border-indigo-50 bg-[#f8fafc] text-xl lg:text-2xl font-black outline-none focus:bg-white focus:border-indigo-400 transition-all text-slate-700 shadow-inner" />
+                        <div className="absolute right-6 lg:right-8 top-1/2 -translate-y-1/2 pointer-events-none text-xl lg:text-2xl">📅</div>
                       </div>
                     )}
 
                     {q.type === 'link' && (
                       <div className="relative group">
-                        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl">🔗</div>
-                        <input type="text" placeholder="Cole aqui o link ou URL da evidência..." value={responderAnswers[currentStep] || ""} onChange={(e) => setResponderAnswers(p => ({...p, [currentStep]: e.target.value}))} className="w-full p-8 pl-16 rounded-[2.5rem] border-4 border-indigo-50 bg-[#f8fafc] text-lg font-mono text-indigo-600 outline-none focus:bg-white focus:border-indigo-400 transition-all shadow-inner" />
+                        <div className="absolute left-4 lg:left-6 top-1/2 -translate-y-1/2 text-xl lg:text-2xl">🔗</div>
+                        <input type="text" placeholder="Cole aqui o link..." value={responderAnswers[currentStep] || ""} onChange={(e) => setResponderAnswers(p => ({...p, [currentStep]: e.target.value}))} className="w-full p-6 lg:p-8 pl-12 lg:pl-16 rounded-[1.5rem] lg:rounded-[2.5rem] border-4 border-indigo-50 bg-[#f8fafc] text-sm lg:text-lg font-mono text-indigo-600 outline-none focus:bg-white focus:border-indigo-400 transition-all shadow-inner" />
                       </div>
                     )}
 
                     {q.type === 'anexararquivo' && (
-                      <div className="p-8 bg-indigo-50 border-4 border-dashed border-indigo-200 rounded-[3.5rem] flex flex-col items-center text-center space-y-6">
-                        <div className="text-5xl text-indigo-600">📁</div>
-                        <p className="text-indigo-600 text-sm font-bold italic leading-relaxed max-w-lg">
-                          Selecione o arquivo solicitado. Abra a mesma página onde você baixou este formulário e insira o arquivo solicitado lá.
+                      <div className="p-6 lg:p-8 bg-indigo-50 border-4 border-dashed border-indigo-200 rounded-[2.5rem] lg:rounded-[3.5rem] flex flex-col items-center text-center space-y-4 lg:space-y-6">
+                        <div className="text-4xl lg:text-5xl text-indigo-600">📁</div>
+                        <p className="text-indigo-600 text-[11px] lg:text-sm font-bold italic leading-relaxed max-w-lg">
+                          Selecione o arquivo solicitado no sistema principal após finalizar esta auditoria.
                         </p>
-                        <button onClick={() => setResponderAnswers(p => ({...p, [currentStep]: "Arquivo Providenciado"}))} className="px-10 py-4 rounded-full font-black uppercase text-xs tracking-widest transition-all bg-indigo-600 text-white shadow-xl hover:scale-105 active:scale-95">
+                        <button onClick={() => setResponderAnswers(p => ({...p, [currentStep]: "Arquivo Providenciado"}))} className="px-8 py-3 lg:px-10 lg:py-4 rounded-full font-black uppercase text-[9px] lg:text-xs tracking-widest transition-all bg-indigo-600 text-white shadow-xl hover:scale-105 active:scale-95">
                           {responderAnswers[currentStep] ? '✅ Providenciado' : 'Marcar como Providenciado'}
                         </button>
                       </div>
@@ -293,47 +291,48 @@ export default function ResponderView() {
 
                     {(q.type === 'alternativa' || q.type === 'simnaooutro') && q.rows.filter((r:any)=>r.exResp).map(r => (
                       <button key={r.rowIndex} onClick={() => setResponderAnswers(p => ({...p, [currentStep]: r.rowIndex}))}
-                        className={`group flex items-start p-6 rounded-[2rem] border-2 transition-all text-left flex items-center gap-6 ${responderAnswers[currentStep] === r.rowIndex ? 'border-indigo-500 bg-indigo-600 text-white shadow-2xl scale-[1.01]' : 'border-slate-100 bg-white/50 hover:border-indigo-300'}`}>
-                        <div className={`w-7 h-7 rounded-full border-4 flex-shrink-0 mt-0.5 ${responderAnswers[currentStep] === r.rowIndex ? 'border-white/40 bg-white' : 'border-slate-200 bg-white'}`} />
-                        <span className={`font-black text-lg tracking-tight leading-snug ${responderAnswers[currentStep] === r.rowIndex ? 'text-white' : 'text-slate-500 group-hover:text-slate-800'}`}>{r.exResp}</span>
+                        className={`group flex items-center p-4 lg:p-6 rounded-[1.5rem] lg:rounded-[2rem] border-2 transition-all text-left gap-4 lg:gap-6 ${responderAnswers[currentStep] === r.rowIndex ? 'border-indigo-500 bg-indigo-600 text-white shadow-2xl scale-[1.01]' : 'border-slate-100 bg-white/50 hover:border-indigo-300'}`}>
+                        <div className={`w-5 h-5 lg:w-6 lg:h-6 rounded-full border-4 flex-shrink-0 ${responderAnswers[currentStep] === r.rowIndex ? 'border-white/40 bg-white' : 'border-slate-200 bg-white'}`} />
+                        <span className={`font-black text-base lg:text-lg tracking-tight leading-snug ${responderAnswers[currentStep] === r.rowIndex ? 'text-white' : 'text-slate-500 group-hover:text-slate-800'}`}>{r.exResp}</span>
                       </button>
                     ))}
 
                     {q.type === 'simnao' && (
-                      <div className="grid grid-cols-2 gap-6">
+                      <div className="grid grid-cols-2 gap-4 lg:gap-6">
                         {['Sim', 'Não'].map(opt => (
                           <button key={opt} onClick={() => setResponderAnswers(p => ({...p, [currentStep]: opt}))}
-                            className={`py-10 rounded-[2rem] font-black uppercase text-lg transition-all shadow-xl ${responderAnswers[currentStep] === opt ? (opt === 'Sim' ? 'bg-emerald-500 text-white shadow-emerald-200' : 'bg-[#e11d48] text-white shadow-rose-200') : 'bg-[#f8fafc] text-[#94a3b8]'}`}>{opt}</button>
+                            className={`py-6 lg:py-10 rounded-[1.5rem] lg:rounded-[2rem] font-black uppercase text-base lg:text-lg transition-all shadow-xl ${responderAnswers[currentStep] === opt ? (opt === 'Sim' ? 'bg-emerald-500 text-white shadow-emerald-200' : 'bg-[#e11d48] text-white shadow-rose-200') : 'bg-[#f8fafc] text-[#94a3b8]'}`}>{opt}</button>
                         ))}
                       </div>
                     )}
                     
-                    {q.type === 'respostaescrita' && <textarea onChange={e => setResponderAnswers(p => ({...p, [currentStep]: e.target.value}))} value={responderAnswers[currentStep]||""} className="w-full p-8 rounded-[2rem] border-0 bg-[#f8fafc] min-h-[200px] text-lg font-medium outline-none focus:bg-white focus:ring-4 ring-indigo-50 transition-all shadow-inner" placeholder="Digite sua resposta aqui..." />}
+                    {q.type === 'respostaescrita' && <textarea onChange={e => setResponderAnswers(p => ({...p, [currentStep]: e.target.value}))} value={responderAnswers[currentStep]||""} className="w-full p-6 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border-0 bg-[#f8fafc] min-h-[150px] lg:min-h-[200px] text-base lg:text-lg font-medium outline-none focus:bg-white shadow-inner" placeholder="Digite sua resposta aqui..." />}
                   </div>
                 </div>
              </div>
 
-             <div className="flex gap-6 pt-4">
-                <button onClick={() => setCurrentStep(p => p - 1)} disabled={currentStep === 0} className="px-10 py-5 bg-white border border-[#e2e8f0] rounded-full font-black uppercase text-[10px] tracking-widest text-[#94a3b8] disabled:opacity-0 transition-all hover:bg-gray-50 active:scale-95 shadow-sm">Anterior</button>
+             {/* Controles de Navegação */}
+             <div className="flex gap-4 lg:gap-6 pt-4">
+                <button onClick={() => setCurrentStep(p => p - 1)} disabled={currentStep === 0} className="px-6 lg:px-10 py-4 lg:py-5 bg-white border border-[#e2e8f0] rounded-full font-black uppercase text-[9px] lg:text-[10px] tracking-widest text-[#94a3b8] disabled:opacity-0 hover:bg-gray-50 active:scale-95 shadow-sm transition-all">Anterior</button>
                 <button onClick={currentStep === responderQuestions.length - 1 ? downloadResponderFile : () => setCurrentStep(p => p + 1)} disabled={!isComplete} 
-                  className={`flex-grow py-5 rounded-full font-black uppercase text-xs tracking-[0.3em] shadow-2xl transition-all active:scale-[0.98] disabled:bg-slate-200 ${currentStep === responderQuestions.length - 1 ? 'bg-[#1e293b] text-white' : 'bg-indigo-600 text-white shadow-indigo-200'}`}>
+                  className={`flex-grow py-4 lg:py-5 rounded-full font-black uppercase text-[10px] lg:text-xs tracking-[0.2em] lg:tracking-[0.3em] shadow-2xl transition-all active:scale-[0.98] disabled:bg-slate-200 ${currentStep === responderQuestions.length - 1 ? 'bg-[#1e293b] text-white' : 'bg-indigo-600 text-white shadow-indigo-200'}`}>
                   {currentStep === responderQuestions.length - 1 ? 'Finalizar Auditoria' : 'Próxima Questão'}
                 </button>
              </div>
           </div>
         )}
 
+        {/* ESTADO FINAL: CONCLUÍDO */}
         {isResponderFinished && (
-           <div className="text-center space-y-10 py-20 animate-in zoom-in">
-              <div className="text-[100px] drop-shadow-2xl">🏆</div>
-              <h2 className="text-5xl font-black text-[#1e293b] italic uppercase leading-none">Concluído!</h2>
+           <div className="text-center space-y-6 lg:space-y-10 py-10 lg:py-20 animate-in zoom-in w-full max-w-2xl px-4">
+              <div className="text-[clamp(4rem,10vw,7rem)] drop-shadow-2xl">🏆</div>
+              <h2 className="text-[clamp(2.5rem,6vw,4rem)] font-black text-[#1e293b] italic uppercase leading-none">Concluído!</h2>
               
-              {/* 3. Insira o componente de upload aqui para o funcionário salvar no Google Cloud */}
-              <div className="max-w-md mx-auto mt-8">
+              <div className="w-full bg-white p-6 lg:p-10 rounded-[2.5rem] lg:rounded-[3.5rem] shadow-2xl border border-white">
                 <AuditorUpload />
               </div>
         
-              <button onClick={() => window.location.reload()} className="px-14 py-5 bg-[#1e293b] text-white rounded-full font-black uppercase tracking-widest shadow-2xl hover:bg-indigo-600 transition-all">
+              <button onClick={() => window.location.reload()} className="w-full sm:w-auto px-10 lg:px-14 py-4 lg:py-5 bg-[#1e293b] text-white rounded-full font-black uppercase tracking-widest shadow-2xl hover:bg-indigo-600 transition-all active:scale-95">
                 Reiniciar Sessão
               </button>
            </div>
