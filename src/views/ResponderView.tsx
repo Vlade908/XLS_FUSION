@@ -340,4 +340,4 @@ export default function ResponderView() {
       </div>
     </div>
   );
-}
+};
