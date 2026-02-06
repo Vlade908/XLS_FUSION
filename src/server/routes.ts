@@ -1,64 +1,66 @@
+/** @format */
+
 import { Express } from 'express';
-import { upload } from './gridfs.js';
+import { upload } from './gridfs.js'; // Mantendo seu multer configurado
 import fs from 'fs';
-import path from 'path';
-import axios from 'axios';
-import { GoogleAuth } from 'google-auth-library';
+import { Storage } from '@google-cloud/storage';
+
+// Inicializa o Storage (No Cloud Run, ele busca as credenciais automaticamente)
+const storage = new Storage();
+const BUCKET_NAME = 'auditoria-xls-fusion';
 
 export function registerRoutes(app: Express) {
+  
   app.post('/api/upload-planilha', upload.single('file'), async (req, res) => {
     const tempPath = req.file?.path;
 
     try {
-      if (!req.file) return res.status(400).send("Arquivo não subiu.");
+      if (!req.file) {
+        return res.status(400).send("Arquivo não encontrado no upload.");
+      }
 
-      console.log("📁 [TI] Forçando upload para o Bucket na mão...");
+      console.log(`📁 [TI] Iniciando upload para o Bucket: ${BUCKET_NAME}`);
 
-      // 1. Pegar o Token manualmente sem usar a função que dá erro
-      // Se a google-auth-library continuar dando erro, você terá que gerar um token
-      // no console do Google e colar aqui como string para testar.
-      const auth = new GoogleAuth({
-        keyFile: path.join(process.cwd(), 'google-credentials.json'),
-        scopes: 'https://www.googleapis.com/auth/cloud-platform',
-      });
-      
-      const client = await auth.getClient();
-      const tokenResponse = await client.getAccessToken();
-      const token = tokenResponse.token;
-
-      if (!token) throw new Error("Token não gerado.");
-
-      const BUCKET_NAME = 'auditoria-xls-fusion';
       const destFileName = `auditorias/${Date.now()}-${req.file.originalname}`;
+      const bucket = storage.bucket(BUCKET_NAME);
       
-      // 2. Upload via Axios (HTTPS PURO)
-      // A URL de 'Simple Upload' do Google Storage
-      const url = `https://storage.googleapis.com/upload/storage/v1/b/${BUCKET_NAME}/o?uploadType=media&name=${encodeURIComponent(destFileName)}`;
-
-      console.log("📡 [TI] Batendo na API do Google via Axios...");
-
-      const fileData = fs.readFileSync(tempPath!);
-
-      await axios.post(url, fileData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        }
+      // Realiza o upload usando a biblioteca oficial
+      await bucket.upload(tempPath!, {
+        destination: destFileName,
+        metadata: {
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
       });
 
-      console.log("🚀 [TI] FINALMENTE! Tá no Bucket!");
+      console.log("🚀 [TI] SUCESSO: Arquivo salvo no Cloud Storage!");
 
-      if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+      // Remove o arquivo temporário do servidor para não encher o container
+      if (tempPath && fs.existsSync(tempPath)) {
+        fs.unlinkSync(tempPath);
+      }
 
-      res.status(200).json({ message: "SALVO NO BUCKET!" });
+      res.status(200).json({ 
+        message: "Upload realizado com sucesso!",
+        file: destFileName 
+      });
 
     } catch (err: any) {
       console.error("❌ [TI ERROR]:", err.message);
-      if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
       
-      // Se der erro de biblioteca aqui, o plano final de TI é: 
-      // COLAR O TOKEN MANUALMENTE NO CÓDIGO SÓ PARA O UPLOAD FUNCIONAR HOJE.
-      res.status(500).send(`Erro: ${err.message}`);
+      // Limpa o arquivo temporário mesmo em caso de erro
+      if (tempPath && fs.existsSync(tempPath)) {
+        fs.unlinkSync(tempPath);
+      }
+
+      res.status(500).json({ 
+        error: "Erro ao salvar no Cloud Storage", 
+        details: err.message 
+      });
     }
+  });
+
+  // Rota de saúde para o Cloud Run verificar se o servidor está vivo
+  app.get('/api/health', (_req, res) => {
+    res.status(200).send('OK');
   });
 }
