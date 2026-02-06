@@ -11,21 +11,14 @@ export default function ResponderView() {
   const [employeeMapping, setEmployeeMapping] = useState<any[]>([]);
   const [selectedResponder, setSelectedResponder] = useState<string>("");
   const [responderQuestions, setResponderQuestions] = useState<any[]>([]);
-  const [responderAnswers, setResponderAnswers] = useState<Record<number, any>>(
-    {},
-  );
+  const [responderAnswers, setResponderAnswers] = useState<Record<number, any>>({});
   const [isResponderFinished, setIsResponderFinished] = useState(false);
-  const [responderWorkbook, setResponderWorkbook] =
-    useState<XLSX.WorkBook | null>(null);
+  const [responderWorkbook, setResponderWorkbook] = useState<XLSX.WorkBook | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
 
   const findSheet = (wb: XLSX.WorkBook, target: string) => {
     const normalize = (s: string) =>
-      s
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .trim();
+      s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     return wb.SheetNames.find((n) => normalize(n) === normalize(target));
   };
 
@@ -63,15 +56,10 @@ export default function ResponderView() {
 
     const mapData: any[][] = XLSX.utils.sheet_to_json(mapSheet, { header: 1 });
     const myIds = mapData
-      .filter(
-        (r: any) => String(r[1]).trim().toLowerCase() === name.toLowerCase(),
-      )
+      .filter((r: any) => String(r[1]).trim().toLowerCase() === name.toLowerCase())
       .map((r: any) => normID(r[0]));
 
-    const formData: any[][] = XLSX.utils.sheet_to_json(formSheet, {
-      header: 1,
-      defval: "",
-    });
+    const formData: any[][] = XLSX.utils.sheet_to_json(formSheet, { header: 1, defval: "" });
     const groupedData: Record<string, any> = {};
     let lastKnownId = "";
     let lastKnownType = "";
@@ -79,41 +67,20 @@ export default function ResponderView() {
     formData.forEach((row: any, idx: number) => {
       if (idx === 0) return;
       if (row[1]) lastKnownId = normID(row[1]);
-      const rawType = String(row[8] || "")
-        .trim()
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[^a-z0-9]/g, "");
+      const rawType = String(row[8] || "").trim().toLowerCase().normalize("NFD").replace(/[^a-z0-9]/g, "");
       if (rawType !== "") lastKnownType = rawType;
 
       if (lastKnownId && myIds.includes(lastKnownId)) {
         if (!groupedData[lastKnownId]) {
-          groupedData[lastKnownId] = {
-            id: lastKnownId,
-            questionParts: [],
-            rows: [],
-            type: lastKnownType,
-          };
+          groupedData[lastKnownId] = { id: lastKnownId, questionParts: [], rows: [], type: lastKnownType };
         }
-        const questionText = [row[2], row[3], row[4], row[5]]
-          .map((v) => String(v || "").trim())
-          .filter((v) => v !== "")
-          .join(" ");
-        if (questionText.length > 1)
-          groupedData[lastKnownId].questionParts.push(questionText);
-        groupedData[lastKnownId].rows.push({
-          rowIndex: idx,
-          exResp: String(row[6] || "").trim(),
-        });
+        const questionText = [row[2], row[3], row[4], row[5]].map((v) => String(v || "").trim()).filter((v) => v !== "").join(" ");
+        if (questionText.length > 1) groupedData[lastKnownId].questionParts.push(questionText);
+        groupedData[lastKnownId].rows.push({ rowIndex: idx, exResp: String(row[6] || "").trim() });
       }
     });
 
-    setResponderQuestions(
-      Object.values(groupedData).map((g: any) => ({
-        ...g,
-        fullText: Array.from(new Set(g.questionParts)).join(" ").trim(),
-      })),
-    );
+    setResponderQuestions(Object.values(groupedData).map((g: any) => ({ ...g, fullText: Array.from(new Set(g.questionParts)).join(" ").trim() })));
     setCurrentStep(0);
     setIsResponderFinished(false);
   };
@@ -126,34 +93,22 @@ export default function ResponderView() {
       if (q.type === "check") {
         q.rows.forEach((row: any) => {
           const isSelected = Array.isArray(ans) && ans.includes(row.rowIndex);
-          ws[XLSX.utils.encode_cell({ r: row.rowIndex, c: 7 })] = {
-            v: isSelected ? 1 : 0,
-            t: "n",
-          };
+          ws[XLSX.utils.encode_cell({ r: row.rowIndex, c: 7 })] = { v: isSelected ? 1 : 0, t: "n" };
         });
       } else if (["alternativa", "simnaooutro"].includes(q.type)) {
         q.rows.forEach((row: any) => {
           const isSelected = ans === row.rowIndex;
-          ws[XLSX.utils.encode_cell({ r: row.rowIndex, c: 7 })] = {
-            v: isSelected ? row.exResp : "",
-            t: "s",
-          };
+          ws[XLSX.utils.encode_cell({ r: row.rowIndex, c: 7 })] = { v: isSelected ? row.exResp : "", t: "s" };
         });
       } else if (q.type === "simnao") {
         const cellRef = XLSX.utils.encode_cell({ r: q.rows[0].rowIndex, c: 7 });
         ws[cellRef] = { v: ans || "", t: "s" };
       } else if (q.type === "respostaescritaporlinha") {
         q.rows.forEach((row: any) => {
-          ws[XLSX.utils.encode_cell({ r: row.rowIndex, c: 7 })] = {
-            v: smartClean(ans?.[row.rowIndex] || ""),
-            t: "s",
-          };
+          ws[XLSX.utils.encode_cell({ r: row.rowIndex, c: 7 })] = { v: smartClean(ans?.[row.rowIndex] || ""), t: "s" };
         });
       } else {
-        ws[XLSX.utils.encode_cell({ r: q.rows[0].rowIndex, c: 7 })] = {
-          v: smartClean(ans || ""),
-          t: "s",
-        };
+        ws[XLSX.utils.encode_cell({ r: q.rows[0].rowIndex, c: 7 })] = { v: smartClean(ans || ""), t: "s" };
       }
     });
     XLSX.writeFile(wb, `${selectedResponder}_Respondido.xlsx`);
@@ -161,12 +116,9 @@ export default function ResponderView() {
   };
 
   const q = responderQuestions[currentStep];
-  const isComplete =
-    q?.type === "respostaescritaporlinha"
-      ? responderAnswers[currentStep] &&
-        Object.values(responderAnswers[currentStep]).some((v) => v !== "")
-      : responderAnswers[currentStep] !== undefined &&
-        responderAnswers[currentStep] !== "";
+  const isComplete = q?.type === "respostaescritaporlinha"
+    ? responderAnswers[currentStep] && Object.values(responderAnswers[currentStep]).some((v) => v !== "")
+    : responderAnswers[currentStep] !== undefined && responderAnswers[currentStep] !== "";
 
   return (
     <div className="min-h-screen bg-[#F0F2F5] flex flex-col items-center justify-center p-4 relative overflow-x-hidden font-sans text-slate-800">
@@ -179,28 +131,14 @@ export default function ResponderView() {
         {!answerFile && !selectedResponder && (
           <div className="w-full space-y-6 animate-in fade-in zoom-in duration-700 text-center flex flex-col items-center">
             <h1 className="text-[clamp(2rem,6vw,4rem)] font-black text-[#1e293b] leading-tight uppercase tracking-tighter">
-              Modo{" "}
-              <span className="italic bg-gradient-to-r from-[#4f46e5] to-[#a855f7] bg-clip-text text-transparent">
-                Resposta
-              </span>
+              Modo <span className="italic bg-gradient-to-r from-[#4f46e5] to-[#a855f7] bg-clip-text text-transparent">Resposta</span>
             </h1>
             <div className="bg-white/40 backdrop-blur-[20px] p-1 rounded-[2.5rem] md:rounded-[4rem] border border-white shadow-2xl w-full max-w-2xl">
               <div className="bg-white rounded-[2rem] md:rounded-[3.5rem] p-6 md:p-12 flex flex-col items-center">
-                <div className="w-16 h-16 md:w-20 md:h-20 bg-indigo-600 rounded-2xl flex items-center justify-center text-3xl shadow-xl mb-4 text-white">
-                  📩
-                </div>
-                <h2 className="text-xl md:text-2xl font-black text-[#1e293b] uppercase italic mb-6">
-                  IMPORTAR FORMULÁRIO
-                </h2>
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-indigo-600 rounded-2xl flex items-center justify-center text-3xl shadow-xl mb-4 text-white">📩</div>
+                <h2 className="text-xl md:text-2xl font-black text-[#1e293b] uppercase italic mb-6">IMPORTAR FORMULÁRIO</h2>
                 <div className="w-full">
-                  <FileCard
-                    title="Clique ou arraste o formulário aqui"
-                    subtitle="Selecione o arquivo da Preparação"
-                    color="bg-transparent"
-                    icon=""
-                    file={answerFile}
-                    onFileChange={handleAnswerFileUpload}
-                  />
+                  <FileCard title="Clique ou arraste o formulário aqui" subtitle="Selecione o arquivo da Preparação" color="bg-transparent" icon="" file={answerFile} onFileChange={handleAnswerFileUpload} />
                 </div>
               </div>
             </div>
@@ -209,25 +147,12 @@ export default function ResponderView() {
 
         {answerFile && !selectedResponder && !isResponderFinished && (
           <div className="w-full max-w-5xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-10 text-center">
-            <h2 className="text-[clamp(1.5rem,3vw,2.2rem)] font-black text-[#1e293b] italic uppercase tracking-tighter">
-              Selecione seu nome
-            </h2>
+            <h2 className="text-[clamp(1.5rem,3vw,2.2rem)] font-black text-[#1e293b] italic uppercase tracking-tighter">Selecione seu nome</h2>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3 max-h-[60vh] overflow-y-auto p-4 custom-scrollbar">
               {employeeMapping.map((emp: any) => (
-                <button
-                  key={emp.name}
-                  onClick={() => startResponderSession(emp.name)}
-                  className="flex flex-col items-center gap-2 p-3 md:p-4 bg-white/80 backdrop-blur-md rounded-[1.2rem] md:rounded-[1.5rem] border border-white shadow-lg hover:shadow-indigo-100 hover:scale-[1.02] transition-all active:scale-95 group"
-                >
-                  <div
-                    className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center font-black text-white shadow-md text-sm md:text-base"
-                    style={{ backgroundColor: emp.color }}
-                  >
-                    {emp.name[0]}
-                  </div>
-                  <span className="text-[9px] md:text-[10px] font-black text-[#64748b] uppercase tracking-widest truncate w-full">
-                    {emp.name}
-                  </span>
+                <button key={emp.name} onClick={() => startResponderSession(emp.name)} className="flex flex-col items-center gap-2 p-3 md:p-4 bg-white/80 backdrop-blur-md rounded-[1.2rem] md:rounded-[1.5rem] border border-white shadow-lg hover:shadow-indigo-100 hover:scale-[1.02] transition-all active:scale-95 group">
+                  <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center font-black text-white shadow-md text-sm md:text-base" style={{ backgroundColor: emp.color }}>{emp.name[0]}</div>
+                  <span className="text-[9px] md:text-[10px] font-black text-[#64748b] uppercase tracking-widest truncate w-full">{emp.name}</span>
                 </button>
               ))}
             </div>
@@ -238,249 +163,100 @@ export default function ResponderView() {
           <div className="w-full space-y-3 animate-in fade-in duration-500 max-w-4xl mx-auto">
             <div className="flex justify-between items-center bg-white/60 backdrop-blur-md p-3 md:p-4 rounded-[1.2rem] border border-white shadow-sm">
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setSelectedResponder("")}
-                  className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-lg flex items-center justify-center text-[#94a3b8] hover:text-red-500 transition-all border border-slate-100 shadow-sm text-lg"
-                >
-                  ✕
-                </button>
-                <h3 className="text-sm md:text-base font-black text-[#1e293b] italic uppercase leading-none truncate max-w-[120px] md:max-w-xs">
-                  {selectedResponder}
-                </h3>
+                <button onClick={() => setSelectedResponder("")} className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-lg flex items-center justify-center text-[#94a3b8] hover:text-red-500 transition-all border border-slate-100 shadow-sm text-lg">✕</button>
+                <h3 className="text-sm md:text-base font-black text-[#1e293b] italic uppercase leading-none truncate max-w-[120px] md:max-w-xs">{selectedResponder}</h3>
               </div>
-              <span className="text-[7px] md:text-[9px] font-black text-indigo-500 uppercase tracking-widest italic">
-                Etapa {currentStep + 1} / {responderQuestions.length}
-              </span>
+              <span className="text-[7px] md:text-[9px] font-black text-indigo-500 uppercase tracking-widest italic">Etapa {currentStep + 1} / {responderQuestions.length}</span>
             </div>
 
             <div className="w-full bg-white/40 backdrop-blur-md p-1.5 rounded-full border border-white shadow-sm">
               <div className="flex gap-1 h-2 items-center w-full">
                 {responderQuestions.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrentStep(idx)}
-                    className={`h-full flex-grow rounded-full transition-all duration-300 ${idx === currentStep ? "bg-indigo-600 scale-y-125 z-10 shadow-[0_0_8px_rgba(79,70,229,0.5)]" : responderAnswers[idx] !== undefined ? "bg-indigo-400" : "bg-white"}`}
-                  />
+                  <button key={idx} onClick={() => setCurrentStep(idx)} className={`h-full flex-grow rounded-full transition-all duration-300 ${idx === currentStep ? "bg-indigo-600 scale-y-125 z-10 shadow-[0_0_8px_rgba(79,70,229,0.5)]" : responderAnswers[idx] !== undefined ? "bg-indigo-400" : "bg-white"}`} />
                 ))}
               </div>
             </div>
 
             <div className="bg-white p-5 md:p-8 rounded-[1.8rem] md:rounded-[2.5rem] border border-white shadow-2xl relative overflow-hidden flex flex-col max-h-[65vh]">
-              <div className="absolute top-0 right-0 p-2 text-[#f1f5f9] font-black text-[clamp(3rem,8vw,6rem)] pointer-events-none italic leading-none select-none opacity-50">
-                {currentStep + 1}
-              </div>
+              <div className="absolute top-0 right-0 p-2 text-[#f1f5f9] font-black text-[clamp(3rem,8vw,6rem)] pointer-events-none italic leading-none select-none opacity-50">{currentStep + 1}</div>
               <div className="relative z-10 overflow-y-auto pr-1 custom-scrollbar">
-                <span className="inline-block text-[7px] md:text-[8px] font-black bg-[#1e293b] text-white px-2.5 py-1 rounded-full uppercase tracking-widest mb-3">
-                  Quesito {q.id}
-                </span>
-                <h2 className="text-[clamp(1rem,2.5vw,1.6rem)] font-bold text-[#1e293b] leading-tight italic mb-5">
-                  "{q.fullText}"
-                </h2>
+                <span className="inline-block text-[7px] md:text-[8px] font-black bg-[#1e293b] text-white px-2.5 py-1 rounded-full uppercase tracking-widest mb-3">Quesito {q.id}</span>
+                <h2 className="text-[clamp(1rem,2.5vw,1.6rem)] font-bold text-[#1e293b] leading-tight italic mb-5">"{q.fullText}"</h2>
                 <div className="space-y-3 pt-1">
                   {q.type === "simnao" && (
                     <div className="grid grid-cols-2 gap-3">
                       {["Sim", "Não"].map((opt) => (
-                        <button
-                          key={opt}
-                          onClick={() =>
-                            setResponderAnswers((p) => ({
-                              ...p,
-                              [currentStep]: opt,
-                            }))
-                          }
-                          className={`py-5 md:py-6 rounded-[1.2rem] font-black uppercase text-xs md:text-sm transition-all ${responderAnswers[currentStep] === opt ? (opt === "Sim" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white") : "bg-slate-50 text-slate-400 hover:bg-slate-100"}`}
-                        >
-                          {opt}
-                        </button>
+                        <button key={opt} onClick={() => setResponderAnswers((p) => ({ ...p, [currentStep]: opt }))} className={`py-5 md:py-6 rounded-[1.2rem] font-black uppercase text-xs md:text-sm transition-all ${responderAnswers[currentStep] === opt ? (opt === "Sim" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white") : "bg-slate-50 text-slate-400 hover:bg-slate-100"}`}>{opt}</button>
                       ))}
                     </div>
                   )}
 
-                  {(q.type === "alternativa" || q.type === "simnaooutro") &&
-                    q.rows
-                      .filter((r: any) => r.exResp)
-                      .map((r: any) => (
-                        <button
-                          key={r.rowIndex}
-                          onClick={() =>
-                            setResponderAnswers((p) => ({
-                              ...p,
-                              [currentStep]: r.rowIndex,
-                            }))
-                          }
-                          className={`flex items-center p-3 rounded-[1rem] border-2 transition-all text-left gap-3 w-full ${responderAnswers[currentStep] === r.rowIndex ? "border-indigo-500 bg-indigo-50 text-indigo-900" : "border-slate-50 bg-slate-50/50 hover:border-indigo-200"}`}
-                        >
-                          <div
-                            className={`w-4 h-4 rounded-full border-4 flex-shrink-0 ${responderAnswers[currentStep] === r.rowIndex ? "border-indigo-500 bg-white" : "border-slate-200 bg-white"}`}
-                          />
-                          <span className="text-xs font-black tracking-tight md:text-sm">
-                            {r.exResp}
-                          </span>
-                        </button>
-                      ))}
+                  {(q.type === "alternativa" || q.type === "simnaooutro") && q.rows.filter((r: any) => r.exResp).map((r: any) => (
+                    <button key={r.rowIndex} onClick={() => setResponderAnswers((p) => ({ ...p, [currentStep]: r.rowIndex }))} className={`flex items-center p-3 rounded-[1rem] border-2 transition-all text-left gap-3 w-full ${responderAnswers[currentStep] === r.rowIndex ? "border-indigo-500 bg-indigo-50 text-indigo-900" : "border-slate-50 bg-slate-50/50 hover:border-indigo-200"}`}>
+                      <div className={`w-4 h-4 rounded-full border-4 flex-shrink-0 ${responderAnswers[currentStep] === r.rowIndex ? "border-indigo-500 bg-white" : "border-slate-200 bg-white"}`} />
+                      <span className="text-xs font-black tracking-tight md:text-sm">{r.exResp}</span>
+                    </button>
+                  ))}
 
-                  {q.type === "respostaescritaporlinha" &&
-                    q.rows.map((row: any) => (
-                      <div key={row.rowIndex} className="space-y-1">
-                        <label className="text-[9px] font-black text-indigo-600 uppercase ml-2">
-                          {row.exResp}
-                        </label>
-                        <input
-                          type="text"
-                          value={
-                            responderAnswers[currentStep]?.[row.rowIndex] || ""
-                          }
-                          onChange={(e) =>
-                            setResponderAnswers((p) => ({
-                              ...p,
-                              [currentStep]: {
-                                ...(p[currentStep] || {}),
-                                [row.rowIndex]: e.target.value,
-                              },
-                            }))
-                          }
-                          className="w-full p-3 rounded-[0.8rem] bg-slate-50 border-transparent focus:bg-white focus:border-indigo-200 border-2 outline-none text-xs font-bold shadow-inner"
-                          placeholder="Resposta..."
-                        />
-                      </div>
-                    ))}
+                  {q.type === "respostaescritaporlinha" && q.rows.map((row: any) => (
+                    <div key={row.rowIndex} className="space-y-1">
+                      <label className="text-[9px] font-black text-indigo-600 uppercase ml-2">{row.exResp}</label>
+                      <input type="text" value={responderAnswers[currentStep]?.[row.rowIndex] || ""} onChange={(e) => setResponderAnswers((p) => ({ ...p, [currentStep]: { ...(p[currentStep] || {}), [row.rowIndex]: e.target.value } }))} className="w-full p-3 rounded-[0.8rem] bg-slate-50 border-transparent focus:bg-white focus:border-indigo-200 border-2 outline-none text-xs font-bold shadow-inner" placeholder="Resposta..." />
+                    </div>
+                  ))}
 
                   {q.type === "check" && (
                     <div className="grid grid-cols-1 gap-2">
-                      {q.rows
-                        .filter((r: any) => r.exResp)
-                        .map((row: any) => {
-                          const answers = responderAnswers[currentStep] || [];
-                          const active = answers.includes(row.rowIndex);
-                          return (
-                            <button
-                              key={row.rowIndex}
-                              onClick={() => {
-                                const next = active
-                                  ? answers.filter(
-                                      (i: any) => i !== row.rowIndex,
-                                    )
-                                  : [...answers, row.rowIndex];
-                                setResponderAnswers((p) => ({
-                                  ...p,
-                                  [currentStep]:
-                                    next.length > 0 ? next : undefined,
-                                }));
-                              }}
-                              className="group flex items-center p-3 rounded-[1rem] border-2 transition-all text-left bg-white/50 border-slate-100 hover:border-indigo-300"
-                            >
-                              <div
-                                className={`w-5 h-5 rounded-lg border-4 flex-shrink-0 mr-3 flex items-center justify-center transition-all ${active ? "border-indigo-400 bg-indigo-600" : "border-slate-200 bg-white"}`}
-                              >
-                                {active && (
-                                  <span className="text-xs font-black text-white">
-                                    ✓
-                                  </span>
-                                )}
-                              </div>
-                              <span
-                                className={`font-black text-xs md:text-sm tracking-tight leading-snug ${active ? "text-indigo-900" : "text-slate-500"}`}
-                              >
-                                {row.exResp}
-                              </span>
-                            </button>
-                          );
-                        })}
+                      {q.rows.filter((r: any) => r.exResp).map((row: any) => {
+                        const answers = responderAnswers[currentStep] || [];
+                        const active = answers.includes(row.rowIndex);
+                        return (
+                          <button key={row.rowIndex} onClick={() => {
+                            const next = active ? answers.filter((i: any) => i !== row.rowIndex) : [...answers, row.rowIndex];
+                            setResponderAnswers((p) => ({ ...p, [currentStep]: next.length > 0 ? next : undefined }));
+                          }} className="group flex items-center p-3 rounded-[1rem] border-2 transition-all text-left bg-white/50 border-slate-100 hover:border-indigo-300">
+                            <div className={`w-5 h-5 rounded-lg border-4 flex-shrink-0 mr-3 flex items-center justify-center transition-all ${active ? "border-indigo-400 bg-indigo-600" : "border-slate-200 bg-white"}`}>{active && <span className="text-xs font-black text-white">✓</span>}</div>
+                            <span className={`font-black text-xs md:text-sm tracking-tight leading-snug ${active ? "text-indigo-900" : "text-slate-500"}`}>{row.exResp}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
 
                   {/* BLOCO RESTAURADO: ANEXAR ARQUIVO */}
-                  {q.type === "anexararquivo" && (
+                  {q.type === 'anexararquivo' && (
                     <div className="p-4 bg-indigo-50 border-2 border-dashed border-indigo-200 rounded-[1.5rem] flex flex-col items-center text-center space-y-2 animate-in fade-in zoom-in">
                       <div className="text-3xl text-indigo-600">📁</div>
                       <p className="text-indigo-600 text-[10px] font-bold italic leading-relaxed max-w-sm">
-                        Selecione o arquivo solicitado. Abra a mesma página onde
-                        você baixou este formulário e insira o arquivo
-                        solicitado lá.
+                        Selecione o arquivo solicitado. Abra a mesma página onde você baixou este formulário e insira o arquivo solicitado lá.
                       </p>
-                      <button
-                        onClick={() =>
-                          setResponderAnswers((p) => ({
-                            ...p,
-                            [currentStep]: "Arquivo Providenciado",
-                          }))
-                        }
-                        className={`px-6 py-2 rounded-full font-black uppercase text-[8px] transition-all shadow-md active:scale-95 ${responderAnswers[currentStep] ? "bg-emerald-500 text-white" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}
+                      <button 
+                        onClick={() => setResponderAnswers(p => ({...p, [currentStep]: "Arquivo Providenciado"}))} 
+                        className={`px-6 py-2 rounded-full font-black uppercase text-[8px] transition-all shadow-md active:scale-95 ${responderAnswers[currentStep] ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
                       >
-                        {responderAnswers[currentStep]
-                          ? "✅ Providenciado"
-                          : "Marcar como Providenciado"}
+                        {responderAnswers[currentStep] ? '✅ Providenciado' : 'Marcar como Providenciado'}
                       </button>
                     </div>
                   )}
 
                   {/* RESTANTE DOS TIPOS */}
-                  {q.type === "data" && (
+                  {q.type === 'data' && (
                     <div className="relative">
-                      <input
-                        type="date"
-                        value={responderAnswers[currentStep] || ""}
-                        onChange={(e) =>
-                          setResponderAnswers((p) => ({
-                            ...p,
-                            [currentStep]: e.target.value,
-                          }))
-                        }
-                        className="w-full p-4 rounded-[1.2rem] border-2 border-indigo-50 bg-[#f8fafc] text-sm font-black outline-none focus:bg-white focus:border-indigo-400 transition-all text-slate-700 shadow-inner"
-                      />
+                      <input type="date" value={responderAnswers[currentStep] || ""} onChange={(e) => setResponderAnswers(p => ({...p, [currentStep]: e.target.value}))} className="w-full p-4 rounded-[1.2rem] border-2 border-indigo-50 bg-[#f8fafc] text-sm font-black outline-none focus:bg-white focus:border-indigo-400 transition-all text-slate-700 shadow-inner" />
                     </div>
                   )}
-                  {q.type === "link" && (
-                    <input
-                      type="text"
-                      placeholder="Cole aqui o link..."
-                      value={responderAnswers[currentStep] || ""}
-                      onChange={(e) =>
-                        setResponderAnswers((p) => ({
-                          ...p,
-                          [currentStep]: e.target.value,
-                        }))
-                      }
-                      className="w-full p-4 rounded-[1.2rem] border-2 border-indigo-50 bg-[#f8fafc] text-xs font-mono text-indigo-600 outline-none focus:bg-white focus:border-indigo-400 transition-all shadow-inner"
-                    />
+                  {q.type === 'link' && (
+                    <input type="text" placeholder="Cole aqui o link..." value={responderAnswers[currentStep] || ""} onChange={(e) => setResponderAnswers(p => ({...p, [currentStep]: e.target.value}))} className="w-full p-4 rounded-[1.2rem] border-2 border-indigo-50 bg-[#f8fafc] text-xs font-mono text-indigo-600 outline-none focus:bg-white focus:border-indigo-400 transition-all shadow-inner" />
                   )}
-                  {q.type === "respostaescrita" && (
-                    <textarea
-                      onChange={(e) =>
-                        setResponderAnswers((p) => ({
-                          ...p,
-                          [currentStep]: e.target.value,
-                        }))
-                      }
-                      value={responderAnswers[currentStep] || ""}
-                      className="w-full p-3 rounded-[1rem] bg-slate-50 min-h-[80px] text-xs outline-none focus:bg-white border-2 border-transparent focus:border-indigo-100 shadow-inner"
-                      placeholder="Sua resposta..."
-                    />
-                  )}
+                  {q.type === "respostaescrita" && <textarea onChange={(e) => setResponderAnswers((p) => ({ ...p, [currentStep]: e.target.value }))} value={responderAnswers[currentStep] || ""} className="w-full p-3 rounded-[1rem] bg-slate-50 min-h-[80px] text-xs outline-none focus:bg-white border-2 border-transparent focus:border-indigo-100 shadow-inner" placeholder="Sua resposta..." />}
                 </div>
               </div>
             </div>
 
             <div className="flex gap-3">
-              <button
-                onClick={() => setCurrentStep((p) => p - 1)}
-                disabled={currentStep === 0}
-                className="px-5 py-3 bg-white rounded-full font-black uppercase text-[9px] text-[#94a3b8] disabled:opacity-0 shadow-sm border border-slate-100 hover:bg-slate-50"
-              >
-                Anterior
-              </button>
-              <button
-                onClick={
-                  currentStep === responderQuestions.length - 1
-                    ? downloadResponderFile
-                    : () => setCurrentStep((p) => p + 1)
-                }
-                disabled={!isComplete}
-                className="flex-grow py-3 rounded-full font-black uppercase text-[9px] tracking-widest bg-indigo-600 text-white shadow-lg active:scale-95 transition-all disabled:bg-slate-200"
-              >
-                {currentStep === responderQuestions.length - 1
-                  ? "Finalizar"
-                  : "Próxima"}
+              <button onClick={() => setCurrentStep((p) => p - 1)} disabled={currentStep === 0} className="px-5 py-3 bg-white rounded-full font-black uppercase text-[9px] text-[#94a3b8] disabled:opacity-0 shadow-sm border border-slate-100 hover:bg-slate-50">Anterior</button>
+              <button onClick={currentStep === responderQuestions.length - 1 ? downloadResponderFile : () => setCurrentStep((p) => p + 1)} disabled={!isComplete} className="flex-grow py-3 rounded-full font-black uppercase text-[9px] tracking-widest bg-indigo-600 text-white shadow-lg active:scale-95 transition-all disabled:bg-slate-200">
+                {currentStep === responderQuestions.length - 1 ? "Finalizar" : "Próxima"}
               </button>
             </div>
           </div>
@@ -489,18 +265,11 @@ export default function ResponderView() {
         {isResponderFinished && (
           <div className="py-4 text-center space-y-4 animate-in zoom-in">
             <div className="text-5xl drop-shadow-lg">🏆</div>
-            <h2 className="text-2xl font-black text-[#1e293b] uppercase">
-              Concluído!
-            </h2>
+            <h2 className="text-2xl font-black text-[#1e293b] uppercase">Concluído!</h2>
             <div className="max-w-xs p-4 mx-auto bg-white rounded-[1.5rem] shadow-xl">
               <AuditorUpload />
             </div>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-8 py-3 bg-[#1e293b] text-white rounded-full font-black uppercase text-[10px] shadow-lg hover:bg-indigo-600"
-            >
-              Reiniciar
-            </button>
+            <button onClick={() => window.location.reload()} className="px-8 py-3 bg-[#1e293b] text-white rounded-full font-black uppercase text-[10px] shadow-lg hover:bg-indigo-600">Reiniciar</button>
           </div>
         )}
       </div>
