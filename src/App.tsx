@@ -1,28 +1,34 @@
+/** @format */
+
 import React, { useState, useEffect } from 'react';
 import PreparationView from './views/PreparationView';
 import FiltrosView from './views/FiltrosView';
 import ResponderView from './views/ResponderView';
 import ConsolidationView from './views/ConsolidationView';
 
+interface User {
+  name: string;
+  email: string;
+  photo?: string;
+}
+
 export default function App() {
-  // 1. Inicializa o estado com base no que está na URL ou 'preparacao' por padrão
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.replace('#', '');
     return ['preparacao', 'filtros', 'responder', 'consolidar'].includes(hash) ? hash : 'preparacao';
   });
   
+  const [user, setUser] = useState<User | null>(null);
   const [rulesFile, setRulesFile] = useState<File | null>(null);
   const [senderFormFile, setSenderFormFile] = useState<File | null>(null);
   const [baseFile, setBaseFile] = useState<File | null>(null);
   const [employeeFiles, setEmployeeFiles] = useState<FileList | null>(null);
   const [workerColors, setWorkerColors] = useState<Record<string, string>>({});
 
-  // 2. Efeito para atualizar a URL sempre que a aba mudar
   useEffect(() => {
     window.location.hash = activeTab;
   }, [activeTab]);
 
-  // 3. Efeito para detectar se o usuário clicou no "Voltar" do navegador ou mudou o link manualmente
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
@@ -59,6 +65,15 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  // FUNÇÃO DE LOGIN
+  const handleLogin = () => {
+    setUser({
+      name: "Enzo Estagiário",
+      email: "vlade908@gmail.com",
+      photo: "https://ui-avatars.com/api/?name=Enzo+Estagiario&background=6366F1&color=fff"
+    });
+  };
+
   return (
     <div className="flex h-screen bg-[#F0F2F5] overflow-hidden font-sans">
       <aside className={`transition-all duration-700 ease-in-out border-r border-slate-200 bg-white flex flex-col z-50 shadow-2xl ${isImmersive ? 'w-20' : 'w-72'}`}>
@@ -86,12 +101,36 @@ export default function App() {
             </button>
           ))}
         </nav>
+
+        <div className="p-4 border-t border-slate-100">
+          {user ? (
+            <div className={`flex items-center gap-3 p-2 bg-slate-50 rounded-2xl ${isImmersive ? 'justify-center' : ''}`}>
+              <img src={user.photo} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" alt="User" />
+              {!isImmersive && (
+                <div className="overflow-hidden">
+                  <p className="text-[10px] font-black text-slate-800 truncate">{user.name}</p>
+                  <button onClick={() => setUser(null)} className="text-[8px] font-black text-rose-500 uppercase">Sair</button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button 
+              onClick={handleLogin}
+              className={`w-full flex items-center gap-3 p-4 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[10px] uppercase ${isImmersive ? 'justify-center' : ''}`}
+            >
+              <span>🔐</span>
+              {!isImmersive && <span>Login</span>}
+            </button>
+          )}
+        </div>
       </aside>
 
       <main className="flex-grow overflow-y-auto relative">
         <div className={isImmersive ? "" : "p-10"}>
           {activeTab === 'preparacao' && (
             <PreparationView 
+              user={user}
+              onLogin={handleLogin} // NOVA PROP
               rulesFile={rulesFile} setRulesFile={setRulesFile}
               senderFormFile={senderFormFile} setSenderFormFile={setSenderFormFile}
               workerColors={workerColors} setWorkerColors={setWorkerColors}

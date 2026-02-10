@@ -4,8 +4,6 @@ import { Express } from 'express';
 import { upload } from './gridfs.js'; 
 import fs from 'fs';
 import { Storage } from '@google-cloud/storage';
-// Importação do Firestore (Certifique-se de que o pacote 'firebase-admin' esteja instalado se for usar via SDK)
-// Para o Cloud Run, usaremos a lib oficial @google-cloud/firestore
 import { Firestore } from '@google-cloud/firestore';
 
 const storage = new Storage();
@@ -22,91 +20,84 @@ const sanitizePath = (text: string) => {
 
 export function registerRoutes(app: Express) {
   
-  // ROTA: Criar um Novo Projeto de Auditoria (Admin)
-  app.post('/api/criar-projeto', upload.fields([
-    { name: 'rulesFile', maxCount: 1 },
-    { name: 'baseFile', maxCount: 1 }
-  ]), async (req, res) => {
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-    const { criador, mesAno, codigoProjeto, workerColors } = req.body;
-
+  // ROTA: Listar Histórico do Usuário
+  app.get('/api/meus-formularios', async (req, res) => {
+    const { email } = req.query; // Recebe o e-mail do usuário logado
     try {
-      if (!files.rulesFile || !files.baseFile) throw new Error("Arquivos base faltando.");
-
-      const bucket = storage.bucket(BUCKET_NAME);
-      const pastaProjeto = `projetos/${codigoProjeto}`;
-
-      // 1. Upload das Bases para o Bucket
-      const rulesDest = `${pastaProjeto}/bases/regras.xlsx`;
-      const baseDest = `${pastaProjeto}/bases/base.xlsx`;
-
-      await bucket.upload(files.rulesFile[0].path, { destination: rulesDest });
-      await bucket.upload(files.baseFile[0].path, { destination: baseDest });
-
-      // 2. Salvar Metadados no Firestore
-      await firestore.collection('projetos').doc(codigoProjeto).set({
-        codigo: codigoProjeto,
-        criador: criador,
-        mesAno: mesAno,
-        workerColors: JSON.parse(workerColors || '{}'),
-        links: { rules: rulesDest, base: baseDest },
-        criadoEm: new Date().toISOString(),
-        status: 'ativo'
-      });
-
-      // Limpar temporários
-      fs.unlinkSync(files.rulesFile[0].path);
-      fs.unlinkSync(files.baseFile[0].path);
-
-      res.status(200).json({ message: "Projeto Publicado!", link: `/responder?p=${codigoProjeto}` });
-
+      const snapshot = await firestore.collection('projetos')
+        .where('criadorEmail', '==', email)
+        .orderBy('criadoEm', 'desc')
+        .get();
+      
+      const projetos = snapshot.docs.map(doc => doc.data());
+      res.status(200).json(projetos);
     } catch (err: any) {
-      console.error("❌ [TI ERROR]:", err.message);
       res.status(500).json({ error: err.message });
     }
   });
 
-  // ROTA: Salvar Resposta Final do Usuário
+  // ROTA: Criar Projeto (Agora salvando o e-mail do criador)
+  app.post('/api/criar-projeto', upload.fields([
+    { name: 'rulesFile', maxCount: 1 },
+    { name: 'baseFile', maxCount: 1 },
+    { name: 'templateFile', maxCount: 1 }
+  ]), async (req, res) => {
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const { criadorNome, criadorEmail, mesAno, codigoProjeto, workerColors } = req.body;
+
+    try {
+      if (!files.rulesFile || !files.baseFile || !files.templateFile) throw new Error("Arquivos faltando.");
+
+      const bucket = storage.bucket(BUCKET_NAME);
+      const pastaProjeto = `projetos/${codigoProjeto}`;
+
+      const rulesDest = `${pastaProjeto}/bases/regras.xlsx`;
+      const baseDest = `${pastaProjeto}/bases/base_respostas.xlsx`;
+      const templateDest = `${pastaProjeto}/bases/template_tags.xlsx`;
+
+      await Promise.all([
+        bucket.upload(files.rulesFile[0].path, { destination: rulesDest }),
+        bucket.upload(files.baseFile[0].path, { destination: baseDest }),
+        bucket.upload(files.templateFile[0].path, { destination: templateDest })
+      ]);
+
+      await firestore.collection('projetos').doc(codigoProjeto).set({
+        codigo: codigoProjeto,
+        criadorNome: criadorNome,
+        criadorEmail: criadorEmail, // CHAVE PARA O HISTÓRICO
+        mesAno: mesAno,
+        workerColors: JSON.parse(workerColors || '{}'),
+        links: { rules: rulesDest, baseRespostas: baseDest, templateTags: templateDest },
+        criadoEm: new Date().toISOString(),
+        status: 'ativo'
+      });
+
+      [files.rulesFile[0], files.baseFile[0], files.templateFile[0]].forEach(f => {
+        if (fs.existsSync(f.path)) fs.unlinkSync(f.path);
+      });
+
+      res.status(200).json({ message: "Projeto Publicado!", link: `/responder?p=${codigoProjeto}` });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // MANTEMOS AS ROTAS DE RESPOSTA E ANEXO (Não precisam de login)
   app.post('/api/finalizar-resposta', upload.single('file'), async (req, res) => {
     const { codigoProjeto, responder } = req.body;
     const tempPath = req.file?.path;
-
     try {
       const safeResponder = sanitizePath(responder);
       const destFileName = `projetos/${codigoProjeto}/respostas/${safeResponder}_Final.xlsx`;
-
       await storage.bucket(BUCKET_NAME).upload(tempPath!, { destination: destFileName });
-      
-      // Registrar no Firestore que o usuário respondeu
       await firestore.collection('projetos').doc(codigoProjeto).collection('respostas').doc(safeResponder).set({
         nome: responder,
         arquivo: destFileName,
         respondidoEm: new Date().toISOString()
       });
-
       if (tempPath) fs.unlinkSync(tempPath);
-      res.status(200).json({ message: "Respostas salvas na nuvem!" });
-    } catch (err: any) {
-      if (tempPath) fs.unlinkSync(tempPath);
-      res.status(500).send(err.message);
-    }
-  });
-
-  // MANTEMOS A ROTA DE ANEXO PARA USO DURANTE O FORMULÁRIO (Opção do usuário)
-  app.post('/api/upload-anexo', upload.single('file'), async (req, res) => {
-    const { responder, questionNumber, codigoProjeto } = req.body;
-    const tempPath = req.file?.path;
-    try {
-      const safeResponder = sanitizePath(String(responder));
-      const safeQ = sanitizePath(String(questionNumber));
-      const dest = `projetos/${codigoProjeto}/anexos/${safeResponder}/Q${safeQ}/${Date.now()}-${req.file?.originalname}`;
-      await storage.bucket(BUCKET_NAME).upload(tempPath!, { destination: dest });
-      if (tempPath) fs.unlinkSync(tempPath);
-      res.status(200).json({ path: dest });
-    } catch (err: any) {
-      if (tempPath) fs.unlinkSync(tempPath);
-      res.status(500).send(err.message);
-    }
+      res.status(200).json({ message: "Sucesso!" });
+    } catch (err) { res.status(500).send(err); }
   });
 
   app.get('/api/health', (_req, res) => res.status(200).send('OK'));
