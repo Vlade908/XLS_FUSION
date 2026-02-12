@@ -7,18 +7,18 @@ import { registerRoutes } from "./routes.js";
 const app = express();
 app.use(express.json());
 
-// 1. Registra as rotas da API primeiro
+// 1. Registra as rotas da API (Obrigatório vir primeiro)
 registerRoutes(app);
 
 // 2. Define o caminho da pasta dist
 const distPath = path.join(process.cwd(), 'dist');
 
-// 3. Serve os arquivos estáticos
+// 3. Serve os arquivos estáticos (CSS, JS, Imagens)
 app.use(express.static(distPath));
 
-// 4. ROTA CORRIGIDA (Regex Pura):
-// Em vez de '*', usamos /.*/ que é aceito por qualquer versão do Express
-app.get(/.*/, (_req, res) => {
+// 4. ROTA DE FALLBACK BLINDADA (TI):
+// Só entrega o index.html se a rota NÃO começar com /api
+app.get(/^((?!\/api).)*$/, (_req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
