@@ -1,24 +1,37 @@
 FROM node:20-slim
 
+# Declaração dos ARGs
+ARG VITE_FIREBASE_API_KEY
+ARG VITE_FIREBASE_AUTH_DOMAIN
+ARG VITE_FIREBASE_DB_URL
+ARG VITE_FIREBASE_PROJECT_ID
+ARG VITE_FIREBASE_STORAGE_BUCKET
+ARG VITE_FIREBASE_SENDER_ID
+ARG VITE_FIREBASE_APP_ID
+ARG VITE_FIREBASE_MEASUREMENT_ID
+
+# Exportação para ENV
+ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
+ENV VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN
+ENV VITE_FIREBASE_DB_URL=$VITE_FIREBASE_DB_URL
+ENV VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID
+ENV VITE_FIREBASE_STORAGE_BUCKET=$VITE_FIREBASE_STORAGE_BUCKET
+ENV VITE_FIREBASE_SENDER_ID=$VITE_FIREBASE_SENDER_ID
+ENV VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID
+ENV VITE_FIREBASE_MEASUREMENT_ID=$VITE_FIREBASE_MEASUREMENT_ID
+
 WORKDIR /app
 
-# Instalamos dependências necessárias
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-
-# Instalamos tudo
 RUN npm install
-
 COPY . .
 
-# Fazemos o build do Front-end
-RUN npm run build
+# TI: ESTA LINHA É O SEGREDO. Ela força o build e nos mostra se a chave existe (mas não a exibe inteira por segurança)
+RUN echo "Iniciando build para o projeto: ${VITE_FIREBASE_PROJECT_ID}" && npm run build
 
-# O Cloud Run exige a porta 8080
 ENV PORT=8080
 EXPOSE 8080
 
-# COMANDO AJUSTADO: 
-# Usamos o node com o loader do tsx explicitamente para evitar o erro de "module not found"
 CMD ["npx", "tsx", "src/server/index.ts"]
