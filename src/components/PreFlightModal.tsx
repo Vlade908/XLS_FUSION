@@ -1,106 +1,181 @@
-import React from 'react';
+/** @format */
+import { useState, useMemo } from "react";
+import { X, Search, AlertCircle, CheckCircle2, ChevronRight } from "lucide-react";
 
-interface Props {
+interface PreflightModalProps {
   isOpen: boolean;
   onClose: () => void;
+  previewData: any[]; // { id, worker, value, type, row }
   onConfirm: () => void;
-  previewData: any[];
 }
 
-export const PreFlightModal = ({ isOpen, onClose, onConfirm, previewData }: Props) => {
+export function PreFlightModal({ isOpen, onClose, previewData, onConfirm }: PreflightModalProps) {
+  const [filterResponder, setFilterResponder] = useState("");
+  const [filterStatus, setFilterStatus] = useState("todos");
+
+  // TI: Agrupamento por ID usando os campos corretos (worker e value)
+  const groupedQuestions = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    previewData.forEach(item => {
+      if (!groups[item.id]) groups[item.id] = [];
+      groups[item.id].push(item);
+    });
+    return groups;
+  }, [previewData]);
+
+  const filteredIds = useMemo(() => {
+    return Object.keys(groupedQuestions).filter(id => {
+      const rows = groupedQuestions[id];
+      const matchesResponder = filterResponder === "" || 
+        rows.some(r => String(r.worker || "").toLowerCase().includes(filterResponder.toLowerCase()));
+      
+      const hasAnyAnswer = rows.some(r => r.value !== "" && r.value !== undefined && r.value !== null);
+      
+      const matchesStatus = filterStatus === "todos" 
+        ? true 
+        : filterStatus === "pendente" ? !hasAnyAnswer : hasAnyAnswer;
+
+      return matchesResponder && matchesStatus;
+    });
+  }, [groupedQuestions, filterResponder, filterStatus]);
+
   if (!isOpen) return null;
 
-  const grouped = previewData.reduce((acc: any, curr: any) => {
-    if (!acc[curr.id]) acc[curr.id] = [];
-    acc[curr.id].push(curr);
-    return acc;
-  }, {});
-
-  const formatDisplayValue = (item: any) => {
-    const val = item.value;
-    const isCheckType = String(item.type).toLowerCase().includes("check");
-
-    // LÓGICA: SÓ MOSTRA ÍCONE SE O TIPO FOR 'CHECK'
-    if (isCheckType) {
-      if (val === 1 || val === "1" || val === true || String(val).toLowerCase() === "true" || val === "☑") {
-        return (
-          <div className="flex items-center justify-center gap-2 text-emerald-600 animate-in zoom-in">
-            <span className="text-2xl font-black">☑</span>
-            <span className="text-[9px] font-black uppercase tracking-tighter">Marcado</span>
-          </div>
-        );
-      }
-      // Considera 0 ou Vazio em Checkbox como desmarcado
-      return (
-        <div className="flex items-center justify-center gap-2 text-slate-300">
-          <span className="text-2xl font-black">☐</span>
-          <span className="text-[9px] font-black uppercase tracking-tighter">Não</span>
-        </div>
-      );
-    }
-
-    // SE NÃO FOR CHECK, TRATA COMO TEXTO/NÚMERO NORMAL
-    if (val === "" || val === undefined || val === null) {
-      return <span className="text-rose-400 italic font-bold text-[10px] px-3 py-1 bg-rose-50 rounded-lg uppercase">[Pendente]</span>;
-    }
-
-    return <span className="text-slate-700 font-bold text-sm">{val}</span>;
-  };
-
   return (
-    <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-[110] flex items-center justify-center p-4 animate-in fade-in">
-      <div className="bg-white w-full max-w-7xl max-h-[90vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/10 font-sans">
+    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[500] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-6xl h-[90vh] rounded-[3.5rem] shadow-2xl flex flex-col overflow-hidden border border-white/20">
         
-        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-indigo-600 text-white shadow-lg">
-          <div>
-            <h2 className="text-2xl font-black tracking-tighter uppercase italic leading-none text-white">Auditoria de Injeção</h2>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80 mt-1">Diferenciando Checkboxes de Dados Numéricos</p>
-          </div>
-          <button onClick={onClose} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-rose-500 transition-all font-bold text-xl text-white">✕</button>
-        </div>
+        {/* HEADER ROBUSTO - FILTROS CORRIGIDOS */}
+        <div className="bg-indigo-600 p-8 md:p-10 text-white relative">
+          <button onClick={onClose} className="absolute top-8 right-8 p-3 hover:bg-white/10 rounded-full transition-all">
+            <X size={28} />
+          </button>
+          
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-4xl font-black uppercase italic tracking-tighter leading-none">Cockpit de Auditoria</h2>
+              <p className="text-indigo-100 text-xs font-bold mt-2 opacity-80 uppercase tracking-widest">Sincronização por Regras e CPF</p>
+            </div>
 
-        <div className="p-8 flex-grow overflow-y-auto bg-slate-50 space-y-8 custom-scrollbar">
-          {Object.entries(grouped).map(([qId, items]: [string, any]) => (
-            <div key={qId} className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden animate-in slide-in-from-bottom-4">
-              <div className="bg-slate-900 p-4 px-8 flex justify-between items-center">
-                <span className="text-indigo-400 font-black uppercase tracking-tighter italic">Quesito {qId}</span>
-                <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Responsável: <span className="text-white">{items[0].worker}</span></span>
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="flex-grow min-w-[250px] space-y-2">
+                <label className="text-[10px] font-black uppercase ml-2 text-indigo-200">Filtrar Auditor</label>
+                <div className="relative group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-white transition-colors" size={18} />
+                  <input 
+                    type="text" 
+                    value={filterResponder}
+                    onChange={(e) => setFilterResponder(e.target.value)}
+                    placeholder="Ex: Renata..."
+                    className="w-full bg-white/10 border-2 border-white/10 rounded-2xl p-4 pl-12 outline-none focus:border-white focus:bg-white/20 font-bold transition-all placeholder:text-indigo-300"
+                  />
+                </div>
               </div>
 
-              <div className="p-6 overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="text-[10px] font-black text-slate-400 uppercase border-b border-slate-100">
-                      <th className="pb-4 px-4 w-24">Linha</th>
-                      <th className="pb-4 px-4">Tipo de Campo</th>
-                      <th className="pb-4 px-4 text-center">Resultado Injetado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item: any, i: number) => (
-                      <tr key={i} className="text-xs border-b border-slate-50 hover:bg-slate-50 transition-all group">
-                        <td className="py-5 px-4 font-black text-slate-300">#{item.row}</td>
-                        <td className="py-5 px-4">
-                          <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${item.type === 'check' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
-                            {item.type || 'geral'}
-                          </span>
-                        </td>
-                        <td className="py-5 px-4 text-center bg-white border-l border-slate-50 shadow-inner">
-                          {formatDisplayValue(item)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="min-w-[200px] space-y-2">
+                <label className="text-[10px] font-black uppercase ml-2 text-indigo-200">Status do Quesito</label>
+                <select 
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full bg-white/10 border-2 border-white/10 rounded-2xl p-4 outline-none focus:border-white focus:bg-white/20 font-bold appearance-none cursor-pointer"
+                >
+                  <option value="todos" className="text-slate-900">Todos os Estados</option>
+                  <option value="pendente" className="text-slate-900">🚨 Apenas Pendentes</option>
+                  <option value="concluido" className="text-slate-900">✅ Apenas Respondidos</option>
+                </select>
               </div>
             </div>
-          ))}
+          </div>
         </div>
 
-        <div className="p-8 border-t bg-white flex justify-end gap-4 shadow-inner">
-          <button onClick={onConfirm} className="px-14 py-5 bg-indigo-600 text-white rounded-3xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-indigo-700 active:scale-95">Gerar XLSX Final 🚀</button>
+        {/* READER DE REVISÃO */}
+        <div className="flex-grow overflow-y-auto p-6 md:p-10 bg-[#F8FAFC] custom-scrollbar">
+          <div className="space-y-8">
+            {filteredIds.map(id => {
+              const rows = groupedQuestions[id];
+              // TI: Verifica se o quesito inteiro tem pelo menos uma resposta
+              const hasAnyAnswer = rows.some(r => r.value !== "" && r.value !== undefined && r.value !== null);
+              const worker = rows[0].worker;
+
+              return (
+                <div key={id} className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden hover:shadow-xl transition-all border-l-8 border-l-indigo-500 group">
+                  <div className="bg-slate-900 p-5 px-8 flex justify-between items-center text-white">
+                    <div className="flex items-center gap-4">
+                      <span className="text-xl font-black italic tracking-tighter uppercase">Quesito {id}</span>
+                      <div className="h-4 w-[1px] bg-white/20" />
+                      <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">AUDITOR: {worker}</span>
+                    </div>
+                    {hasAnyAnswer ? (
+                      <span className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase"><CheckCircle2 size={14}/> Resolvido</span>
+                    ) : (
+                      <span className="flex items-center gap-2 text-rose-400 text-[10px] font-black uppercase animate-pulse"><AlertCircle size={14}/> Pendente</span>
+                    )}
+                  </div>
+
+                  <div className="p-0 overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-100 bg-slate-50/50">
+                          <th className="p-4 px-8 text-[9px] font-black text-slate-400 uppercase">Linha</th>
+                          <th className="p-4 text-[9px] font-black text-slate-400 uppercase">Tipo</th>
+                          <th className="p-4 px-8 text-right text-[9px] font-black text-slate-400 uppercase">Valor em Memória</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {rows.map((row, rIdx) => {
+                          const isSelectionType = ['sim/ nao', 'sim/ nao/ outro', 'alternativa'].includes(String(row.type).toLowerCase());
+                          
+                          return (
+                            <tr key={rIdx} className="hover:bg-indigo-50/30 transition-colors">
+                              <td className="p-4 px-8 font-black text-slate-400 text-xs">#{row.row}</td>
+                              <td className="p-4">
+                                <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-[9px] font-black uppercase">{row.type || 'geral'}</span>
+                              </td>
+                              <td className="p-4 px-8 text-right">
+                                {row.value ? (
+                                  <span className="text-slate-900 font-black text-sm bg-slate-50 px-4 py-2 rounded-xl inline-block border border-slate-200">
+                                    {row.value}
+                                  </span>
+                                ) : (
+                                  // TI: REGRA SOLICITADA - Se houver resposta no grupo E for tipo seleção, mostra como linha de opção (sem selo pendente)
+                                  (hasAnyAnswer && isSelectionType) ? (
+                                    <span className="text-slate-300 font-bold text-[9px] uppercase tracking-tighter">Opção não selecionada</span>
+                                  ) : (
+                                    <span className="text-rose-500 font-black text-[10px] uppercase italic bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
+                                      [Pendente]
+                                    </span>
+                                  )
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* FOOTER */}
+        <div className="p-8 px-10 bg-white border-t border-slate-100 flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Resumo da Carga</span>
+            <span className="text-sm font-black text-indigo-600 uppercase italic">Exibindo {filteredIds.length} quesitos filtrados</span>
+          </div>
+          <div className="flex gap-4">
+            <button onClick={onClose} className="px-10 py-5 bg-slate-100 text-slate-500 rounded-full font-black uppercase text-[10px] hover:bg-slate-200 transition-all">Cancelar</button>
+            <button 
+              onClick={onConfirm}
+              className="px-12 py-5 bg-indigo-600 text-white rounded-full font-black uppercase text-[10px] shadow-xl shadow-indigo-200 hover:bg-slate-900 transition-all active:scale-95 flex items-center gap-3"
+            >
+              Validar e Prosseguir <ChevronRight size={18} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
-};
+}

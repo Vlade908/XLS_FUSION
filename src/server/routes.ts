@@ -1,64 +1,173 @@
+/** @format */
 import { Express } from 'express';
-import { upload } from './gridfs.js';
+import { upload } from './gridfs.js'; 
 import fs from 'fs';
-import path from 'path';
-import axios from 'axios';
-import { GoogleAuth } from 'google-auth-library';
+import { Storage } from '@google-cloud/storage';
+import { Firestore } from '@google-cloud/firestore';
+
+// TI: Função interna de normalização para o backend (Remove acentos e espaços)
+const backendNorm = (val: string) => 
+  val.toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+
+const PROJECT_ID = 'teste-f9d4e';
+const BUCKET_NAME = 'auditoria-xls-fusion';
+const DATABASE_ID = 'xls-fusion';
+
+const storage = new Storage({ projectId: PROJECT_ID });
+const firestore = new Firestore({ projectId: PROJECT_ID, databaseId: DATABASE_ID });
 
 export function registerRoutes(app: Express) {
-  app.post('/api/upload-planilha', upload.single('file'), async (req, res) => {
-    const tempPath = req.file?.path;
-
+  
+  // Lista formulários criados por um usuário específico
+  app.get('/api/meus-formularios', async (req, res) => {
     try {
-      if (!req.file) return res.status(400).send("Arquivo não subiu.");
+      const email = String(req.query.email || "").toLowerCase().trim();
+      const snapshot = await firestore.collection('projetos')
+        .where('criadorEmail', '==', email)
+        .orderBy('criadoEm', 'desc').get();
+      res.status(200).json(snapshot.docs.map(doc => doc.data()));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
 
-      console.log("📁 [TI] Forçando upload para o Bucket na mão...");
+  // Lista respostas enviadas por um usuário específico (Histórico)
+  app.get('/api/minhas-respostas', async (req, res) => {
+    try {
+      const email = String(req.query.email || "").toLowerCase().trim();
+      const snapshot = await firestore.collectionGroup('respostas')
+        .where('emailRespondente', '==', email)
+        .orderBy('respondidoEm', 'desc').get();
+      res.status(200).json(snapshot.docs.map(doc => doc.data()));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
 
-      // 1. Pegar o Token manualmente sem usar a função que dá erro
-      // Se a google-auth-library continuar dando erro, você terá que gerar um token
-      // no console do Google e colar aqui como string para testar.
-      const auth = new GoogleAuth({
-        keyFile: path.join(process.cwd(), 'google-credentials.json'),
-        scopes: 'https://www.googleapis.com/auth/cloud-platform',
+  // Busca detalhes de um projeto específico e suas respostas
+  app.get('/api/projeto/:codigo', async (req, res) => {
+    try {
+      const doc = await firestore.collection('projetos').doc(req.params.codigo).get();
+      if (!doc.exists) return res.status(404).send("Projeto não encontrado");
+      const projeto = doc.data();
+      const respSnapshot = await firestore.collection('projetos').doc(req.params.codigo).collection('respostas').get();
+      const respostas = respSnapshot.docs.map(d => d.data());
+      res.json({ ...projeto, respostas });
+    } catch (err: any) { res.status(500).send(err.message); }
+  });
+
+  // Lista arquivos de resposta no Storage para um projeto
+  app.get('/api/projeto/:codigo/respostas', async (req, res) => {
+    try {
+      const prefix = `projetos/${req.params.codigo}/respostas/`;
+      const [files] = await storage.bucket(BUCKET_NAME).getFiles({ prefix });
+      const fileData = await Promise.all(files.map(async (file) => {
+        const [content] = await file.download();
+        return { name: file.name.split('/').pop(), base64: content.toString('base64') };
+      }));
+      res.json(fileData);
+    } catch (err: any) { res.status(500).send(err.message); }
+  });
+
+  // Download genérico de arquivos do Bucket (Base64)
+  app.get('/api/download-arquivo', async (req, res) => {
+    const { path } = req.query;
+    try {
+      const [content] = await storage.bucket(BUCKET_NAME).file(String(path)).download();
+      res.json({ base64: content.toString('base64') });
+    } catch (err: any) { res.status(500).send(err.message); }
+  });
+
+  // ROTA CORRIGIDA: Upload de anexos individuais (fotos/comprovantes)
+  app.post('/api/upload-anexo', upload.single('file'), async (req, res) => {
+    const { codigoProjeto, responder, quesitoId } = req.body;
+    try {
+      if (!req.file) throw new Error("Arquivo não recebido pelo servidor.");
+      
+      const safeResponder = backendNorm(responder);
+      // Remove espaços do nome original para evitar erros de URL
+      const originalName = req.file.originalname.replace(/\s+/g, '_');
+      
+      const dest = `projetos/${codigoProjeto}/anexos/${safeResponder}/${quesitoId}_${originalName}`;
+      
+      await storage.bucket(BUCKET_NAME).upload(req.file.path, { 
+        destination: dest,
+        metadata: { contentType: req.file.mimetype }
       });
+
+      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
       
-      const client = await auth.getClient();
-      const tokenResponse = await client.getAccessToken();
-      const token = tokenResponse.token;
-
-      if (!token) throw new Error("Token não gerado.");
-
-      const BUCKET_NAME = 'auditoria-xls-fusion';
-      const destFileName = `auditorias/${Date.now()}-${req.file.originalname}`;
-      
-      // 2. Upload via Axios (HTTPS PURO)
-      // A URL de 'Simple Upload' do Google Storage
-      const url = `https://storage.googleapis.com/upload/storage/v1/b/${BUCKET_NAME}/o?uploadType=media&name=${encodeURIComponent(destFileName)}`;
-
-      console.log("📡 [TI] Batendo na API do Google via Axios...");
-
-      const fileData = fs.readFileSync(tempPath!);
-
-      await axios.post(url, fileData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        }
-      });
-
-      console.log("🚀 [TI] FINALMENTE! Tá no Bucket!");
-
-      if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-
-      res.status(200).json({ message: "SALVO NO BUCKET!" });
-
-    } catch (err: any) {
-      console.error("❌ [TI ERROR]:", err.message);
-      if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-      
-      // Se der erro de biblioteca aqui, o plano final de TI é: 
-      // COLAR O TOKEN MANUALMENTE NO CÓDIGO SÓ PARA O UPLOAD FUNCIONAR HOJE.
-      res.status(500).send(`Erro: ${err.message}`);
+      res.status(200).json({ message: "Anexo enviado", path: dest });
+    } catch (err: any) { 
+      console.error("❌ Erro no Upload de Anexo:", err.message);
+      res.status(500).send(err.message); 
     }
   });
+
+  // Finaliza a auditoria: sobe o Excel final e registra no Firestore
+  app.post('/api/finalizar-resposta-nuvem', upload.single('file'), async (req, res) => {
+    const { codigoProjeto, responder, emailRespondente } = req.body;
+    try {
+      const safeResponder = backendNorm(responder);
+      const dest = `projetos/${codigoProjeto}/respostas/${safeResponder}_Final.xlsx`;
+      
+      await storage.bucket(BUCKET_NAME).upload(req.file!.path, { destination: dest });
+      
+      await firestore.collection('projetos').doc(codigoProjeto).collection('respostas').doc(safeResponder).set({
+        nome: responder,
+        nomeLimpo: safeResponder,
+        emailRespondente: emailRespondente?.toLowerCase() || 'anonimo',
+        arquivo: dest,
+        codigoProjeto,
+        respondidoEm: new Date().toISOString()
+      });
+
+      if (fs.existsSync(req.file!.path)) fs.unlinkSync(req.file!.path);
+      res.status(200).json({ message: "Sucesso!" });
+    } catch (err: any) { res.status(500).send(err.message); }
+  });
+
+  // Criação de novos projetos (Upload das 3 bases obrigatórias)
+  app.post('/api/criar-projeto', upload.fields([
+    { name: 'rulesFile', maxCount: 1 }, 
+    { name: 'baseFile', maxCount: 1 }, 
+    { name: 'templateFile', maxCount: 1 }
+  ]), async (req, res) => {
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const { criadorNome, criadorEmail, mesAno, codigoProjeto, workerColors } = req.body;
+    try {
+      const bucket = storage.bucket(BUCKET_NAME);
+      const pasta = `projetos/${codigoProjeto}`;
+      
+      await Promise.all([
+        bucket.upload(files.rulesFile[0].path, { destination: `${pasta}/bases/regras.xlsx` }),
+        bucket.upload(files.baseFile[0].path, { destination: `${pasta}/bases/base_respostas.xlsx` }),
+        bucket.upload(files.templateFile[0].path, { destination: `${pasta}/bases/template_tags.xlsx` })
+      ]);
+
+      await firestore.collection('projetos').doc(codigoProjeto).set({
+        codigo: codigoProjeto, 
+        criadorNome, 
+        criadorEmail: criadorEmail.toLowerCase(), 
+        mesAno,
+        workerColors: JSON.parse(workerColors || '{}'),
+        links: { 
+          rules: `${pasta}/bases/regras.xlsx`, 
+          baseRespostas: `${pasta}/bases/base_respostas.xlsx`, 
+          templateTags: `${pasta}/bases/template_tags.xlsx` 
+        },
+        criadoEm: new Date().toISOString(), 
+        status: 'ativo'
+      });
+
+      // Limpeza de temporários
+      [files.rulesFile[0], files.baseFile[0], files.templateFile[0]].forEach(f => {
+        if (fs.existsSync(f.path)) fs.unlinkSync(f.path);
+      });
+
+      res.status(200).json({ message: "Sucesso" });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.get('/api/health', (_req, res) => res.status(200).send('OK'));
 }

@@ -1,112 +1,126 @@
-import React, { useState, useEffect } from 'react';
+/** @format */
+import { useState, useEffect } from 'react'; // Removi o 'React' não utilizado
 import PreparationView from './views/PreparationView';
 import FiltrosView from './views/FiltrosView';
 import ResponderView from './views/ResponderView';
 import ConsolidationView from './views/ConsolidationView';
+import { initializeApp } from "firebase/app";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyATkkXGqivRer8wE-yVPH_4tqY0wNRUgeQ",
+  authDomain: "teste-f9d4e.firebaseapp.com",
+  databaseURL: "https://teste-f9d4e-default-rtdb.firebaseio.com",
+  projectId: "teste-f9d4e",
+  storageBucket: "teste-f9d4e.firebasestorage.app",
+  messagingSenderId: "788286452772",
+  appId: "1:788286452772:web:746df40e2d9475dc01d4b1",
+  measurementId: "G-STY5RF90LE"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
+
+interface User { name: string; email: string; photo?: string; }
 
 export default function App() {
-  // 1. Inicializa o estado com base no que está na URL ou 'preparacao' por padrão
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.replace('#', '');
     return ['preparacao', 'filtros', 'responder', 'consolidar'].includes(hash) ? hash : 'preparacao';
   });
   
+  const [user, setUser] = useState<User | null>(null);
   const [rulesFile, setRulesFile] = useState<File | null>(null);
   const [senderFormFile, setSenderFormFile] = useState<File | null>(null);
-  const [baseFile, setBaseFile] = useState<File | null>(null);
-  const [employeeFiles, setEmployeeFiles] = useState<FileList | null>(null);
   const [workerColors, setWorkerColors] = useState<Record<string, string>>({});
 
-  // 2. Efeito para atualizar a URL sempre que a aba mudar
   useEffect(() => {
-    window.location.hash = activeTab;
-  }, [activeTab]);
-
-  // 3. Efeito para detectar se o usuário clicou no "Voltar" do navegador ou mudou o link manualmente
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '');
-      if (hash && hash !== activeTab) {
-        setActiveTab(hash);
+    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setUser({ 
+          name: firebaseUser.displayName || "", 
+          email: firebaseUser.email || "", 
+          photo: firebaseUser.photoURL || "" 
+        });
+      } else { 
+        setUser(null); 
       }
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [activeTab]);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleLogin = async () => {
+    try { 
+      await signInWithPopup(auth, provider); 
+    } catch (err: any) { 
+      console.error("Erro no login:", err);
+      alert("Erro ao realizar login.");
+    }
+  };
+
+  const handleLogout = () => signOut(auth);
+
+  useEffect(() => { window.location.hash = activeTab; }, [activeTab]);
 
   const isImmersive = activeTab === 'responder';
 
-  const handleExportColors = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(workerColors));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "cores_funcionarios.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
-
-  const handleImportColors = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const json = JSON.parse(event.target?.result as string);
-        setWorkerColors(json);
-      } catch (err) { alert("Erro ao importar JSON."); }
-    };
-    reader.readAsText(file);
-  };
-
   return (
-    <div className="flex h-screen bg-[#F0F2F5] overflow-hidden font-sans">
-      <aside className={`transition-all duration-700 ease-in-out border-r border-slate-200 bg-white flex flex-col z-50 shadow-2xl ${isImmersive ? 'w-20' : 'w-72'}`}>
+    <div className="flex h-screen bg-[#F0F2F5] overflow-hidden font-sans text-slate-800">
+      <aside className={`transition-all duration-700 border-r border-slate-200 bg-white flex flex-col z-50 shadow-2xl ${isImmersive ? 'w-20' : 'w-72'}`}>
         <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-black shadow-lg">F</div>
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black">XF</div>
           {!isImmersive && <h1 className="text-xl font-black text-slate-800 tracking-tighter">XLS <span className="text-indigo-600">FUSION</span></h1>}
         </div>
 
         <nav className="flex-grow p-4 space-y-3">
           {[
-            { id: 'preparacao', icon: '🎨', label: 'Preparação' },
-            { id: 'filtros', icon: '⚡', label: 'Filtros' },
-            { id: 'responder', icon: '📝', label: 'Responder' },
+            { id: 'preparacao', icon: '🎨', label: 'Preparação' }, 
+            { id: 'filtros', icon: '⚡', label: 'Filtros' }, 
+            { id: 'responder', icon: '📝', label: 'Responder' }, 
             { id: 'consolidar', icon: '📊', label: 'Consolidar' }
           ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center transition-all duration-500 rounded-2xl ${
-                activeTab === tab.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50'
-              } ${isImmersive ? 'p-4 justify-center' : 'p-4 gap-4'}`}
-            >
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full flex items-center rounded-2xl transition-all duration-300 ${activeTab === tab.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50'} ${isImmersive ? 'p-4 justify-center' : 'p-4 gap-4'}`}>
               <span className="text-xl">{tab.icon}</span>
               {!isImmersive && <span className="font-bold text-[11px] uppercase tracking-widest">{tab.label}</span>}
             </button>
           ))}
         </nav>
+
+        <div className="p-4 border-t border-slate-100">
+          {user ? (
+            <div className={`flex items-center gap-3 p-2 bg-slate-50 rounded-2xl ${isImmersive ? 'justify-center' : ''}`}>
+              <img src={user.photo} className="w-8 h-8 rounded-full border-2 border-white" alt="User" />
+              {!isImmersive && (
+                <div className="overflow-hidden">
+                  <p className="text-[10px] font-black text-slate-800 truncate">{user.name}</p>
+                  <button onClick={handleLogout} className="text-[8px] font-black text-rose-500 uppercase hover:underline">Sair</button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button onClick={handleLogin} className={`w-full flex items-center gap-3 p-4 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[10px] uppercase hover:bg-indigo-100 transition-all ${isImmersive ? 'justify-center' : ''}`}>
+              <span>🔐</span> {!isImmersive && <span>Login</span>}
+            </button>
+          )}
+        </div>
       </aside>
 
-      <main className="flex-grow overflow-y-auto relative">
+      <main className="flex-grow overflow-y-auto relative bg-[#F8FAFC]">
         <div className={isImmersive ? "" : "p-10"}>
           {activeTab === 'preparacao' && (
             <PreparationView 
-              rulesFile={rulesFile} setRulesFile={setRulesFile}
-              senderFormFile={senderFormFile} setSenderFormFile={setSenderFormFile}
-              workerColors={workerColors} setWorkerColors={setWorkerColors}
-              onExport={handleExportColors} onImport={handleImportColors}
+              user={user} onLogin={handleLogin} 
+              rulesFile={rulesFile} setRulesFile={setRulesFile} 
+              senderFormFile={senderFormFile} setSenderFormFile={setSenderFormFile} 
+              workerColors={workerColors} setWorkerColors={setWorkerColors} 
+              onExport={() => {}} onImport={() => {}} 
             />
           )}
           {activeTab === 'filtros' && <FiltrosView />}
-          {activeTab === 'responder' && <ResponderView />}
-          {activeTab === 'consolidar' && (
-            <ConsolidationView 
-              baseFile={baseFile} setBaseFile={setBaseFile}
-              employeeFiles={employeeFiles} setEmployeeFiles={setEmployeeFiles}
-              workerColors={workerColors}
-            />
-          )}
+          {activeTab === 'responder' && <ResponderView user={user} />}
+          {activeTab === 'consolidar' && <ConsolidationView user={user} />}
         </div>
       </main>
     </div>
