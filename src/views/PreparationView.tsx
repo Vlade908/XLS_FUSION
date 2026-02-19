@@ -19,13 +19,9 @@ interface Props {
 export default function PreparationView({ 
   user, onLogin, rulesFile, setRulesFile, 
   senderFormFile, setSenderFormFile, 
-  workerColors, setWorkerColors,
-  onExport, onImport
+  workerColors, 
 }: Props) {
   const [templateFile, setTemplateFile] = useState<File | null>(null);
-  const [availableWorkers, setAvailableWorkers] = useState<string[]>([]);
-  const [selectedWorker, setSelectedWorker] = useState('');
-  const [selectedColor, setSelectedColor] = useState('#6366F1');
   const [isPublishing, setIsPublishing] = useState(false);
   const [historico, setHistorico] = useState<any[]>([]);
   const [selectedProjectData, setSelectedProjectData] = useState<any>(null);
@@ -257,9 +253,9 @@ export default function PreparationView({
           <h2 className="text-3xl font-black italic uppercase text-slate-800 tracking-tighter">🚀 Nova Auditoria</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <FileCard title="Regras" subtitle="Mapeamento IDs" color="bg-orange-500" icon="⚖️" file={rulesFile} onFileChange={setRulesFile} />
-          <FileCard title="Formulário" subtitle="Coleta de Respostas" color="bg-pink-500" icon="📄" file={senderFormFile} onFileChange={setSenderFormFile} />
-          <FileCard title="Template" subtitle="Geração Automática" color="bg-indigo-600" icon="🎯" file={templateFile} onFileChange={setTemplateFile} />
+          <FileCard title="Regras" subtitle="Relação Funcionario Questão e CPF" color="bg-orange-500" icon="⚖️" file={rulesFile} onFileChange={setRulesFile} />
+          <FileCard title="Formulário" subtitle="Formulario com coluna de Respostas" color="bg-pink-500" icon="📄" file={senderFormFile} onFileChange={setSenderFormFile} />
+          <FileCard title="Template" subtitle="Arquivos com TAG {resposta}" color="bg-indigo-600" icon="🎯" file={templateFile} onFileChange={setTemplateFile} />
         </div>
         <button 
           onClick={publicarAuditoria} 

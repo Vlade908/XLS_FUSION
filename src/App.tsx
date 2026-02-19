@@ -70,7 +70,7 @@ export default function App() {
     <div className="flex h-screen bg-[#F0F2F5] overflow-hidden font-sans text-slate-800">
       <aside className={`transition-all duration-700 border-r border-slate-200 bg-white flex flex-col z-50 shadow-2xl ${isImmersive ? 'w-20' : 'w-72'}`}>
         <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black">F</div>
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black">XF</div>
           {!isImmersive && <h1 className="text-xl font-black text-slate-800 tracking-tighter">XLS <span className="text-indigo-600">FUSION</span></h1>}
         </div>
 
