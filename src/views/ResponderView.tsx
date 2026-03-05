@@ -383,14 +383,19 @@ export default function ResponderView({ user, onLogin }: Props) {
 
       const resFinal = await fetch('/api/finalizar-resposta-nuvem', { method: 'POST', body: fdFinal });
       
-     if (resFinal.ok) {
-      // Deleta o rascunho
+    if (resFinal.ok) {
+      // 1. Limpa o rascunho
       const draftId = `${user?.email}_${activeProject.codigo}_${normName(selectedResponder)}`;
       await deleteDoc(doc(db, "rascunhos", draftId));
       
+      // 2. Desliga o loading PRIMEIRO
+      setIsLoadingSession(false); 
+      
+      // 3. Muda para a tela de sucesso
       setShowConfirmSendModal(false);
-      setIsResponderFinished(true); // Isso deveria mudar a tela
-      }
+      setIsResponderFinished(true);
+      carregarMinhasRespostas();
+    }
     } catch (e:any) {
       alert("❌ Erro no envio: " + e.message);
     } finally {

@@ -26,7 +26,7 @@ provider.setCustomParameters({ prompt: 'select_account' });
 
 interface User { name: string; email: string; photo?: string; }
 
-export const db = getFirestore(firebaseApp);
+export const db = getFirestore(firebaseApp, "xls-fusion");
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
