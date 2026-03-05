@@ -391,8 +391,8 @@ export default function ResponderView({ user, onLogin }: Props) {
       setShowConfirmSendModal(false);
       setIsResponderFinished(true); // Isso deveria mudar a tela
       }
-    } catch (e) {
-      alert("Erro: " + e.message);
+    } catch (e:any) {
+      alert("❌ Erro no envio: " + e.message);
     } finally {
       // O SEGREDO ESTÁ AQUI:
       setIsLoadingSession(false); // Desliga o spinner aconteça o que acontecer
