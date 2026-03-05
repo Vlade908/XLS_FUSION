@@ -383,24 +383,21 @@ export default function ResponderView({ user, onLogin }: Props) {
 
       const resFinal = await fetch('/api/finalizar-resposta-nuvem', { method: 'POST', body: fdFinal });
       
-      if (resFinal.ok) {
-
-        // TI: Deleta o rascunho pois o trabalho foi concluído
-        const draftId = `${user?.email}_${activeProject.codigo}_${normName(selectedResponder)}`;
-        await deleteDoc(doc(db, "rascunhos", draftId)); 
-
-        setShowConfirmSendModal(false);
-        setIsResponderFinished(true);
-        carregarMinhasRespostas();
-      } else {
-        throw new Error("Erro ao salvar arquivo final no servidor.");
+     if (resFinal.ok) {
+      // Deleta o rascunho
+      const draftId = `${user?.email}_${activeProject.codigo}_${normName(selectedResponder)}`;
+      await deleteDoc(doc(db, "rascunhos", draftId));
+      
+      setShowConfirmSendModal(false);
+      setIsResponderFinished(true); // Isso deveria mudar a tela
       }
-    } catch (e: any) {
-      alert("❌ Erro no envio: " + e.message);
+    } catch (e) {
+      alert("Erro: " + e.message);
     } finally {
-      setIsLoadingSession(false);
+      // O SEGREDO ESTÁ AQUI:
+      setIsLoadingSession(false); // Desliga o spinner aconteça o que acontecer
     }
-  };
+    };
 
   const q = responderQuestions[currentStep];
   const isComplete = q?.type === "check" 
@@ -411,7 +408,10 @@ export default function ResponderView({ user, onLogin }: Props) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Processando Inteligência XLS...</p>
+        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+          {isReviewing ? "Sincronizando Auditoria Final..." : "Recuperando seu progresso..."}
+        </p>
+        <span className="mt-2 text-[8px] text-slate-300 uppercase">Isso pode levar alguns segundos dependendo da conexão</span>
       </div>
     );
   }
