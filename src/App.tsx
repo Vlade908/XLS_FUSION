@@ -4,6 +4,7 @@ import PreparationView from './views/PreparationView';
 import FiltrosView from './views/FiltrosView';
 import ResponderView from './views/ResponderView';
 import ConsolidationView from './views/ConsolidationView';
+import { getFirestore } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth";
 
@@ -24,6 +25,8 @@ const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
 interface User { name: string; email: string; photo?: string; }
+
+export const db = getFirestore(firebaseApp);
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => {

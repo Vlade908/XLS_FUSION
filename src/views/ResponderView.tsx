@@ -1,7 +1,10 @@
 /** @format */
 import { useState, useEffect, useRef, useCallback } from "react";
 import * as XLSX from "xlsx-js-style";
+import { db } from "../App"; 
+import { doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
 import { smartClean, normID, normName } from "../utils/excelLogic";
+
 
 interface Props { 
   user: { name: string, email: string, photo?: string } | null; 
@@ -65,12 +68,47 @@ export default function ResponderView({ user, onLogin }: Props) {
     }
   }, [user]);
 
+
+  // TI: Função para salvar rascunho no Firebase Firestore
+  const salvarRascunhoNuvem = async (respostas: any, step: number) => {
+    if (!user?.email || !activeProject?.codigo || !selectedResponder) return;
+
+    // Criamos um ID único: email_projeto_nomeDoAuditor
+    const draftId = `${user.email}_${activeProject.codigo}_${normName(selectedResponder)}`;
+    const draftRef = doc(db, "rascunhos", draftId);
+
+    try {
+      await setDoc(draftRef, {
+        respostas,
+        ultimaAlteracao: new Date().toISOString(),
+        currentStep: step,
+        projeto: activeProject.codigo,
+        auditor: selectedResponder
+      });
+      console.log("📝 Rascunho atualizado na nuvem...");
+    } catch (e) {
+      console.error("Erro ao salvar rascunho:", e);
+    }
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const p = params.get('p');
     if (p) { setCodigoBusca(p); buscarProjeto(p); }
     carregarMinhasRespostas();
   }, [carregarMinhasRespostas]);
+
+
+  // TI: Sempre que as respostas ou o passo mudar, salva no Firebase (com delay de 2s para não pesar)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (Object.keys(responderAnswers).length > 0 && selectedResponder) {
+        salvarRascunhoNuvem(responderAnswers, currentStep);
+      }
+    }, 2000); 
+
+    return () => clearTimeout(timeoutId);
+  }, [responderAnswers, currentStep, selectedResponder]);
 
   const buscarProjeto = async (codigo: string, editarNome?: string) => {
     if (!codigo) return;
@@ -214,6 +252,21 @@ export default function ResponderView({ user, onLogin }: Props) {
 
       setResponderQuestions(questions);
       setResponderAnswers(loadedAnswers);
+        // --- INÍCIO DA RECUPERAÇÃO DE RASCUNHO ---
+        if (user?.email) {
+          const draftId = `${user.email}_${activeProject.codigo}_${targetNameNorm}`;
+          const draftRef = doc(db, "rascunhos", draftId);
+          const draftSnap = await getDoc(draftRef);
+
+          if (draftSnap.exists()) {
+            const cloudData = draftSnap.data();
+            // Mesclamos o que veio do Excel com o que está na nuvem (prioridade para a nuvem)
+            setResponderAnswers(prev => ({ ...prev, ...cloudData.respostas }));
+            setCurrentStep(cloudData.currentStep || 0);
+            console.log("🚀 Rascunho recuperado com sucesso!");
+          }
+        }
+        // --- FIM DA RECUPERAÇÃO ---
       setCurrentStep(0);
       setIsReviewing(false);
       setIsResponderFinished(false);
@@ -331,6 +384,11 @@ export default function ResponderView({ user, onLogin }: Props) {
       const resFinal = await fetch('/api/finalizar-resposta-nuvem', { method: 'POST', body: fdFinal });
       
       if (resFinal.ok) {
+
+        // TI: Deleta o rascunho pois o trabalho foi concluído
+        const draftId = `${user?.email}_${activeProject.codigo}_${normName(selectedResponder)}`;
+        await deleteDoc(doc(db, "rascunhos", draftId)); 
+
         setShowConfirmSendModal(false);
         setIsResponderFinished(true);
         carregarMinhasRespostas();
