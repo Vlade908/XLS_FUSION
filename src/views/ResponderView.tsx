@@ -11,7 +11,7 @@ export default function ResponderView() {
   const [employeeMapping, setEmployeeMapping] = useState<any[]>([]);
   const [selectedResponder, setSelectedResponder] = useState<string>("");
   const [responderQuestions, setResponderQuestions] = useState<any[]>([]);
-  const [responderAnswers, setResponderAnswers] = useState<Record<number, any>>({});
+  const [responderAnswers, setResponderAnswers] = useState<Record<string | number, any>>({});
   const [isResponderFinished, setIsResponderFinished] = useState(false);
   const [responderWorkbook, setResponderWorkbook] = useState<XLSX.WorkBook | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
@@ -66,11 +66,11 @@ export default function ResponderView() {
 
     formData.forEach((row: any, idx: number) => {
       if (idx === 0) return;
-      if (row[1]) lastKnownId = normID(row[1]);
+      if (row[1]) lastKnownId = String(row[1]).trim();
       const rawType = String(row[8] || "").trim().toLowerCase().normalize("NFD").replace(/[^a-z0-9]/g, "");
       if (rawType !== "") lastKnownType = rawType;
 
-      if (lastKnownId && myIds.includes(lastKnownId)) {
+      if (lastKnownId && myIds.includes(normID(lastKnownId))) {
         if (!groupedData[lastKnownId]) {
           groupedData[lastKnownId] = { id: lastKnownId, questionParts: [], rows: [], type: lastKnownType };
         }
@@ -183,6 +183,7 @@ export default function ResponderView() {
                 <span className="inline-block text-[7px] md:text-[8px] font-black bg-[#1e293b] text-white px-2.5 py-1 rounded-full uppercase tracking-widest mb-3">Quesito {q.id}</span>
                 <h2 className="text-[clamp(1rem,2.5vw,1.6rem)] font-bold text-[#1e293b] leading-tight italic mb-5">"{q.fullText}"</h2>
                 <div className="space-y-3 pt-1">
+                  {/* ... (Tipos SimNao, Alternativa, etc) */}
                   {q.type === "simnao" && (
                     <div className="grid grid-cols-2 gap-3">
                       {["Sim", "Não"].map((opt) => (
@@ -223,23 +224,97 @@ export default function ResponderView() {
                     </div>
                   )}
 
-                  {/* BLOCO RESTAURADO: ANEXAR ARQUIVO */}
+                  {/* BLOCO DE ANEXO ATUALIZADO: PREVIEW COMPLETO + FECHAMENTO APÓS CONFIRMAR */}
                   {q.type === 'anexararquivo' && (
-                    <div className="p-4 bg-indigo-50 border-2 border-dashed border-indigo-200 rounded-[1.5rem] flex flex-col items-center text-center space-y-2 animate-in fade-in zoom-in">
-                      <div className="text-3xl text-indigo-600">📁</div>
-                      <p className="text-indigo-600 text-[10px] font-bold italic leading-relaxed max-w-sm">
-                        Selecione o arquivo solicitado. Abra a mesma página onde você baixou este formulário e insira o arquivo solicitado lá.
-                      </p>
-                      <button 
-                        onClick={() => setResponderAnswers(p => ({...p, [currentStep]: "Arquivo Providenciado"}))} 
-                        className={`px-6 py-2 rounded-full font-black uppercase text-[8px] transition-all shadow-md active:scale-95 ${responderAnswers[currentStep] ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-                      >
-                        {responderAnswers[currentStep] ? '✅ Providenciado' : 'Marcar como Providenciado'}
-                      </button>
+                    <div className="p-5 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center text-center space-y-4 animate-in fade-in zoom-in">
+                      
+                      {/* 1. ESTADO INICIAL: NENHUM ARQUIVO SELECIONADO */}
+                      {!responderAnswers[`pending_${q.id}`] && !String(responderAnswers[currentStep] || "").includes("Enviado") && (
+                        <>
+                          <div className="text-4xl">📤</div>
+                          <div className="space-y-1">
+                            <p className="text-slate-900 text-xs font-black uppercase italic">Anexar Comprovante</p>
+                            <p className="text-slate-500 text-[10px] font-bold">Clique para selecionar o arquivo solicitado.</p>
+                          </div>
+                          <div className="w-full max-w-xs">
+                            <input type="file" id={`upload-${q.id}`} className="hidden" onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setResponderAnswers(p => ({...p, [`pending_${q.id}`]: file}));
+                              }} />
+                            <label htmlFor={`upload-${q.id}`} className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-[10px] transition-all cursor-pointer shadow-md active:scale-95 w-full hover:bg-indigo-700">Selecionar Arquivo</label>
+                          </div>
+                        </>
+                      )}
+
+                      {/* 2. ESTADO DE PREVIEW: ARQUIVO SELECIONADO MAS NÃO ENVIADO */}
+                      {responderAnswers[`pending_${q.id}`] && !String(responderAnswers[currentStep] || "").includes("Enviado") && (
+                        <div className="w-full animate-in zoom-in duration-300">
+                          <div className="bg-white p-4 rounded-[1.5rem] shadow-xl border border-indigo-100">
+                            <p className="text-[9px] font-black text-indigo-600 uppercase mb-3 tracking-widest">Confirme o conteúdo:</p>
+                            
+                            <div className="w-full bg-slate-50 rounded-xl overflow-hidden mb-4 border border-slate-200 min-h-[150px] flex items-center justify-center">
+                              {responderAnswers[`pending_${q.id}`].type.startsWith('image/') ? (
+                                <img 
+                                  src={URL.createObjectURL(responderAnswers[`pending_${q.id}`])} 
+                                  className="w-full h-auto max-h-64 object-contain"
+                                  alt="Preview"
+                                />
+                              ) : (
+                                <div className="flex flex-col items-center p-6">
+                                  <span className="text-5xl mb-2">📄</span>
+                                  <span className="text-[10px] font-black text-slate-700 uppercase break-all px-4">
+                                    {responderAnswers[`pending_${q.id}`].name}
+                                  </span>
+                                  <span className="text-[8px] font-bold text-slate-400 mt-1">
+                                    {(responderAnswers[`pending_${q.id}`].size / 1024 / 1024).toFixed(2)} MB
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex gap-2">
+                              <button onClick={() => setResponderAnswers(p => { const n = {...p}; delete n[`pending_${q.id}`]; return n; })} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-[9px] hover:bg-slate-200 transition-all">Trocar</button>
+                              <button onClick={async () => {
+                                  const file = responderAnswers[`pending_${q.id}`];
+                                  const fileName = file.name; // Guardamos o nome para exibir depois
+                                  setResponderAnswers(p => ({...p, [currentStep]: "Enviando..."}));
+                                  const formData = new FormData();
+                                  formData.append('file', file);
+                                  formData.append('responder', selectedResponder);
+                                  formData.append('questionNumber', q.id);
+                                  formData.append('formName', answerFile?.name || 'formulario');
+                                  try {
+                                    const res = await fetch('/api/upload-anexo', { method: 'POST', body: formData });
+                                    if (res.ok) { 
+                                      // Salvamos o nome do arquivo na resposta para mostrar no modo "fechado"
+                                      setResponderAnswers(p => ({...p, [currentStep]: `Enviado: ${fileName} ✅`})); 
+                                    } else { throw new Error(); }
+                                  } catch (err) { alert("Erro ao enviar. Tente novamente."); setResponderAnswers(p => ({...p, [currentStep]: undefined})); }
+                                }} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-[9px] hover:bg-indigo-700 shadow-lg transition-all">É este mesmo!</button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 3. ESTADO FINAL: ARQUIVO ENVIADO (MODO FECHADO) */}
+                      {String(responderAnswers[currentStep] || "").includes("Enviado") && (
+                        <div className="w-full p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between animate-in slide-in-from-top-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">📎</span>
+                            <div className="text-left">
+                              <p className="text-emerald-900 text-[10px] font-black uppercase leading-none">Arquivo Confirmado</p>
+                              <p className="text-emerald-600 text-[8px] font-bold mt-1 truncate max-w-[180px] md:max-w-xs">
+                                {responderAnswers[currentStep].replace("Enviado: ", "").replace(" ✅", "")}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-emerald-500 font-black text-xs">✓</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* RESTANTE DOS TIPOS */}
+                  {/* ... (Resto do código data/link/escrita) */}
                   {q.type === 'data' && (
                     <div className="relative">
                       <input type="date" value={responderAnswers[currentStep] || ""} onChange={(e) => setResponderAnswers(p => ({...p, [currentStep]: e.target.value}))} className="w-full p-4 rounded-[1.2rem] border-2 border-indigo-50 bg-[#f8fafc] text-sm font-black outline-none focus:bg-white focus:border-indigo-400 transition-all text-slate-700 shadow-inner" />

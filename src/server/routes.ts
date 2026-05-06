@@ -1,64 +1,75 @@
+/** @format */
+
 import { Express } from 'express';
-import { upload } from './gridfs.js';
+import { upload } from './gridfs.js'; 
 import fs from 'fs';
-import path from 'path';
-import axios from 'axios';
-import { GoogleAuth } from 'google-auth-library';
+import { Storage } from '@google-cloud/storage';
+
+const storage = new Storage();
+const BUCKET_NAME = 'auditoria-xls-fusion';
+
+// Função auxiliar de TI para limpar nomes de arquivos/pastas sem perder a legibilidade
+const sanitizePath = (text: string) => {
+  return text
+    .normalize("NFD") // Decompõe caracteres acentuados (ex: é -> e + ´)
+    .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
+    .replace(/[^a-z0-9.]/gi, '_') // Substitui o que sobrar de especial por underline
+    .trim();
+};
 
 export function registerRoutes(app: Express) {
-  app.post('/api/upload-planilha', upload.single('file'), async (req, res) => {
+  
+  app.post('/api/upload-anexo', upload.single('file'), async (req, res) => {
     const tempPath = req.file?.path;
+    const { responder, questionNumber, formName } = req.body;
 
     try {
-      if (!req.file) return res.status(400).send("Arquivo não subiu.");
+      if (!req.file) return res.status(400).send("Arquivo não encontrado.");
 
-      console.log("📁 [TI] Forçando upload para o Bucket na mão...");
-
-      // 1. Pegar o Token manualmente sem usar a função que dá erro
-      // Se a google-auth-library continuar dando erro, você terá que gerar um token
-      // no console do Google e colar aqui como string para testar.
-      const auth = new GoogleAuth({
-        keyFile: path.join(process.cwd(), 'google-credentials.json'),
-        scopes: 'https://www.googleapis.com/auth/cloud-platform',
-      });
+      const bucket = storage.bucket(BUCKET_NAME);
       
-      const client = await auth.getClient();
-      const tokenResponse = await client.getAccessToken();
-      const token = tokenResponse.token;
-
-      if (!token) throw new Error("Token não gerado.");
-
-      const BUCKET_NAME = 'auditoria-xls-fusion';
-      const destFileName = `auditorias/${Date.now()}-${req.file.originalname}`;
+      // Aplicando a sanitização inteligente
+      const safeResponder = sanitizePath(String(responder));
+      const safeForm = sanitizePath(String(formName || 'geral'));
+      const safeQNumber = sanitizePath(String(questionNumber));
       
-      // 2. Upload via Axios (HTTPS PURO)
-      // A URL de 'Simple Upload' do Google Storage
-      const url = `https://storage.googleapis.com/upload/storage/v1/b/${BUCKET_NAME}/o?uploadType=media&name=${encodeURIComponent(destFileName)}`;
+      const destFileName = `anexos/${safeForm}/${safeResponder}/Questao_${safeQNumber}/${Date.now()}-${req.file.originalname}`;
 
-      console.log("📡 [TI] Batendo na API do Google via Axios...");
-
-      const fileData = fs.readFileSync(tempPath!);
-
-      await axios.post(url, fileData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        }
+      await bucket.upload(tempPath!, {
+        destination: destFileName,
+        metadata: { contentType: req.file.mimetype },
       });
-
-      console.log("🚀 [TI] FINALMENTE! Tá no Bucket!");
 
       if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
 
-      res.status(200).json({ message: "SALVO NO BUCKET!" });
+      res.status(200).json({ 
+        message: "Anexo salvo com sucesso!",
+        path: destFileName 
+      });
 
     } catch (err: any) {
       console.error("❌ [TI ERROR]:", err.message);
       if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-      
-      // Se der erro de biblioteca aqui, o plano final de TI é: 
-      // COLAR O TOKEN MANUALMENTE NO CÓDIGO SÓ PARA O UPLOAD FUNCIONAR HOJE.
-      res.status(500).send(`Erro: ${err.message}`);
+      res.status(500).json({ error: err.message });
     }
   });
+
+  app.post('/api/upload-planilha', upload.single('file'), async (req, res) => {
+    const tempPath = req.file?.path;
+    try {
+      if (!req.file) return res.status(400).send("Arquivo não encontrado.");
+      const destFileName = `auditorias/${Date.now()}-${req.file.originalname}`;
+      await storage.bucket(BUCKET_NAME).upload(tempPath!, {
+        destination: destFileName,
+        metadata: { contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+      });
+      if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+      res.status(200).json({ message: "Planilha salva!", file: destFileName });
+    } catch (err: any) {
+      if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+      res.status(500).send(err.message);
+    }
+  });
+
+  app.get('/api/health', (_req, res) => res.status(200).send('OK'));
 }
