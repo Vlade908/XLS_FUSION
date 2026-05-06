@@ -1,11 +1,28 @@
 /** @format */
 
+import dotenv from "dotenv";
+
+// Carrega .env primeiro, depois .env.local (que sobrescreve)
+dotenv.config();
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: '.env.local', override: true });
+}
+
 import express from "express";
 import path from "path";
+import helmet from "helmet";
+import cors from "cors";
 import { registerRoutes } from "./routes.js";
+import { connectDB } from "./db.ts";
 
 const app = express();
-app.use(express.json());
+
+app.use(helmet());
+app.use(cors({ origin: true }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: false, limit: '5mb' }));
+
+await connectDB();
 
 // 1. Registra as rotas da API primeiro
 registerRoutes(app);
@@ -22,9 +39,8 @@ app.get(/.*/, (_req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-// 5. Porta dinâmica para o Cloud Run
 const PORT = Number(process.env.PORT) || 8080;
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 BACKEND_OK`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 BACKEND_OK on port ${PORT}`);
 });

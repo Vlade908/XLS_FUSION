@@ -1,21 +1,32 @@
 import multer from 'multer';
+import { GridFsStorage } from 'multer-gridfs-storage';
 import path from 'path';
-import fs from 'fs';
 
-// Criamos uma pasta temporária para o Bolt não se perder
-const uploadDir = path.join(process.cwd(), 'temp_uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
+const mongoUri = process.env.MONGO_URI || 'mongodb://mongo:27017/xls_fusion';
 
-// Configuração simples de disco
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
+const storage = new GridFsStorage({
+  url: mongoUri,
+  options: {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
   },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
+  file: (req, file) => {
+    const filename = `${Date.now()}-${path.basename(file.originalname)}`;
+
+    return {
+      filename,
+      bucketName: 'uploads',
+      metadata: {
+        originalname: file.originalname,
+        fieldname: file.fieldname,
+      },
+    };
+  },
 });
 
-export const upload = multer({ storage });
+export const upload = multer({
+  storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024,
+  },
+});

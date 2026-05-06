@@ -153,7 +153,7 @@ export default function FiltrosView() {
             <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
               <h3 className="text-[10px] font-black text-slate-400 uppercase mb-2">Status do Backup</h3>
               <p className="text-xs text-slate-600 leading-relaxed italic">
-                Aguardando envio para o <span className="text-indigo-600 font-bold">Cloud Storage</span> da prefeitura.
+                  Aguardando envio seguro para o sistema de armazenamento local do servidor.
               </p>
             </div>
           </section>

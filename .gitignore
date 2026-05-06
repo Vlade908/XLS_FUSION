@@ -10,6 +10,7 @@ node_modules
 dist
 dist-ssr
 *.local
+google-credentials.json
 */google-credentials.json
 .vscode/*
 !.vscode/extensions.json
