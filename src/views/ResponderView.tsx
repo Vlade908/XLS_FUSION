@@ -1,7 +1,7 @@
 /** @format */
 
 import AuditorUpload from "../components/AuditorUpload";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { FileCard } from "../components/FileCard";
 import { smartClean, normID } from "../utils/excelLogic";
@@ -15,6 +15,7 @@ export default function ResponderView() {
   const [isResponderFinished, setIsResponderFinished] = useState(false);
   const [responderWorkbook, setResponderWorkbook] = useState<XLSX.WorkBook | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
+  const storageKey = answerFile && selectedResponder ? `xls_fusion_answers_${answerFile.name}_${selectedResponder}` : null;
 
   const findSheet = (wb: XLSX.WorkBook, target: string) => {
     const normalize = (s: string) =>
@@ -85,6 +86,27 @@ export default function ResponderView() {
     setIsResponderFinished(false);
   };
 
+  useEffect(() => {
+    if (!storageKey) return;
+    try {
+      const saved = window.localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setResponderAnswers(parsed.responderAnswers || {});
+        if (typeof parsed.currentStep === 'number') {
+          setCurrentStep(parsed.currentStep);
+        }
+      }
+    } catch (err) {
+      console.error('Falha ao carregar respostas salvas:', err);
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!storageKey) return;
+    window.localStorage.setItem(storageKey, JSON.stringify({ responderAnswers, currentStep }));
+  }, [storageKey, responderAnswers, currentStep]);
+
   const downloadResponderFile = () => {
     const wb = responderWorkbook!;
     const ws = wb.Sheets[findSheet(wb, "formulario")!];
@@ -112,6 +134,9 @@ export default function ResponderView() {
       }
     });
     XLSX.writeFile(wb, `${selectedResponder}_Respondido.xlsx`);
+    if (storageKey) {
+      window.localStorage.removeItem(storageKey);
+    }
     setIsResponderFinished(true);
   };
 

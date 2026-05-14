@@ -6,7 +6,7 @@ const isDocker = process.env.DOCKER_CONTAINER === 'true' || process.env.NODE_ENV
 const MONGO_URI = process.env.MONGO_URI ||
   (isDocker
     ? 'mongodb://root:example@mongo:27017/xls_fusion?authSource=admin'
-    : 'mongodb://localhost:27017/xls_fusion'
+    : 'mongodb://root:example@localhost:27017/xls_fusion?authSource=admin'
   );
 
 export async function connectDB() {

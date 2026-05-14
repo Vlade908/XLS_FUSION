@@ -10,7 +10,7 @@ const storage = new GridFsStorage({
     useNewUrlParser: true,
     useUnifiedTopology: true,
   },
-  file: (req, file) => {
+  file: (_req, file) => {
     const filename = `${Date.now()}-${path.basename(file.originalname)}`;
 
     return {
@@ -22,7 +22,7 @@ const storage = new GridFsStorage({
       },
     };
   },
-});
+}) as unknown as multer.StorageEngine;
 
 export const upload = multer({
   storage,

@@ -1,16 +1,32 @@
 import React, { useState, useEffect } from 'react';
+import { SignedIn, SignedOut, SignIn } from '@clerk/clerk-react';
 import PreparationView from './views/PreparationView';
 import FiltrosView from './views/FiltrosView';
 import ResponderView from './views/ResponderView';
 import ConsolidationView from './views/ConsolidationView';
+import FormBuilderView from './views/FormBuilderView';
+import NotificationsView from './views/NotificationsView';
+import ShareView from './views/ShareView';
+
+const routeTabs = ['preparacao', 'builder', 'share', 'filtros', 'responder', 'notifications', 'consolidar'];
 
 export default function App() {
-  // 1. Inicializa o estado com base no que está na URL ou 'preparacao' por padrão
-  const [activeTab, setActiveTab] = useState(() => {
+  const getRoute = () => {
+    const pathname = window.location.pathname;
+    if (pathname.startsWith('/share/')) {
+      const hash = pathname.split('/share/')[1] || '';
+      return { tab: 'share' as const, shareHash: hash };
+    }
     const hash = window.location.hash.replace('#', '');
-    return ['preparacao', 'filtros', 'responder', 'consolidar'].includes(hash) ? hash : 'preparacao';
-  });
-  
+    return {
+      tab: routeTabs.includes(hash) ? (hash as typeof routeTabs[number]) : 'preparacao' as const,
+      shareHash: null,
+    };
+  };
+
+  const initialRoute = getRoute();
+  const [activeTab, setActiveTab] = useState<typeof routeTabs[number]>(initialRoute.tab);
+  const [shareHash, setShareHash] = useState<string | null>(initialRoute.shareHash);
   const [rulesFile, setRulesFile] = useState<File | null>(null);
   const [senderFormFile, setSenderFormFile] = useState<File | null>(null);
   const [baseFile, setBaseFile] = useState<File | null>(null);
@@ -19,19 +35,42 @@ export default function App() {
 
   // 2. Efeito para atualizar a URL sempre que a aba mudar
   useEffect(() => {
-    window.location.hash = activeTab;
-  }, [activeTab]);
+    if (activeTab === 'share') {
+      if (!shareHash) {
+        window.history.replaceState({}, '', '/share');
+      }
+    } else {
+      window.location.hash = activeTab;
+    }
+  }, [activeTab, shareHash]);
 
-  // 3. Efeito para detectar se o usuário clicou no "Voltar" do navegador ou mudou o link manualmente
+  // 3. Efeito para detectar alterações de rota do navegador
   useEffect(() => {
-    const handleHashChange = () => {
+    const handleLocationChange = () => {
+      const pathname = window.location.pathname;
+      if (pathname.startsWith('/share/')) {
+        const hash = pathname.split('/share/')[1] || '';
+        setActiveTab('share');
+        setShareHash(hash);
+        return;
+      }
+
       const hash = window.location.hash.replace('#', '');
-      if (hash && hash !== activeTab) {
-        setActiveTab(hash);
+      if (routeTabs.includes(hash)) {
+        setActiveTab(hash as typeof routeTabs[number]);
+        setShareHash(null);
+      } else if (!hash && activeTab !== 'preparacao') {
+        setActiveTab('preparacao');
+        setShareHash(null);
       }
     };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
   }, [activeTab]);
 
   const isImmersive = activeTab === 'responder';
@@ -59,56 +98,82 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  if (activeTab === 'share') {
+    return <ShareView shareHash={shareHash} />;
+  }
+
   return (
-    <div className="flex h-screen bg-[#F0F2F5] overflow-hidden font-sans">
-      <aside className={`transition-all duration-700 ease-in-out border-r border-slate-200 bg-white flex flex-col z-50 shadow-2xl ${isImmersive ? 'w-20' : 'w-72'}`}>
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-black shadow-lg">F</div>
-          {!isImmersive && <h1 className="text-xl font-black text-slate-800 tracking-tighter">XLS <span className="text-indigo-600">FUSION</span></h1>}
-        </div>
+    <>
+      <SignedIn>
+      <div className="flex h-screen bg-[#F0F2F5] overflow-hidden font-sans">
+        <aside className={`transition-all duration-700 ease-in-out border-r border-slate-200 bg-white flex flex-col z-50 shadow-2xl ${isImmersive ? 'w-20' : 'w-72'}`}>
+          <div className="p-6 flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-black shadow-lg">F</div>
+            {!isImmersive && <h1 className="text-xl font-black text-slate-800 tracking-tighter">XLS <span className="text-indigo-600">FUSION</span></h1>}
+          </div>
 
-        <nav className="flex-grow p-4 space-y-3">
-          {[
-            { id: 'preparacao', icon: '🎨', label: 'Preparação' },
-            { id: 'filtros', icon: '⚡', label: 'Filtros' },
-            { id: 'responder', icon: '📝', label: 'Responder' },
-            { id: 'consolidar', icon: '📊', label: 'Consolidar' }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center transition-all duration-500 rounded-2xl ${
-                activeTab === tab.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50'
-              } ${isImmersive ? 'p-4 justify-center' : 'p-4 gap-4'}`}
-            >
-              <span className="text-xl">{tab.icon}</span>
-              {!isImmersive && <span className="font-bold text-[11px] uppercase tracking-widest">{tab.label}</span>}
-            </button>
-          ))}
-        </nav>
-      </aside>
+          <nav className="flex-grow p-4 space-y-3">
+            {[
+              { id: 'preparacao', icon: '🎨', label: 'Preparação' },
+              { id: 'builder', icon: '🧩', label: 'Formulários' },
+              { id: 'share', icon: '🔗', label: 'Compartilhar' },
+              { id: 'filtros', icon: '⚡', label: 'Filtros' },
+              { id: 'responder', icon: '📝', label: 'Responder' },
+              { id: 'notifications', icon: '🔔', label: 'Notificações' },
+              { id: 'consolidar', icon: '📊', label: 'Consolidar' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  if (tab.id === 'share') {
+                    window.history.pushState({}, '', '/share');
+                  } else {
+                    window.location.hash = tab.id;
+                  }
+                  setActiveTab(tab.id);
+                }}
+                className={`w-full flex items-center transition-all duration-500 rounded-2xl ${
+                  activeTab === tab.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50'
+                } ${isImmersive ? 'p-4 justify-center' : 'p-4 gap-4'}`}
+              >
+                <span className="text-xl">{tab.icon}</span>
+                {!isImmersive && <span className="font-bold text-[11px] uppercase tracking-widest">{tab.label}</span>}
+              </button>
+            ))}
+          </nav>
+        </aside>
 
-      <main className="flex-grow overflow-y-auto relative">
-        <div className={isImmersive ? "" : "p-10"}>
-          {activeTab === 'preparacao' && (
-            <PreparationView 
-              rulesFile={rulesFile} setRulesFile={setRulesFile}
-              senderFormFile={senderFormFile} setSenderFormFile={setSenderFormFile}
-              workerColors={workerColors} setWorkerColors={setWorkerColors}
-              onExport={handleExportColors} onImport={handleImportColors}
-            />
-          )}
-          {activeTab === 'filtros' && <FiltrosView />}
-          {activeTab === 'responder' && <ResponderView />}
-          {activeTab === 'consolidar' && (
-            <ConsolidationView 
-              baseFile={baseFile} setBaseFile={setBaseFile}
-              employeeFiles={employeeFiles} setEmployeeFiles={setEmployeeFiles}
-              workerColors={workerColors}
-            />
-          )}
-        </div>
-      </main>
-    </div>
+        <main className="flex-grow overflow-y-auto relative">
+          <div className={isImmersive ? "" : "p-10"}>
+            {activeTab === 'preparacao' && (
+              <PreparationView 
+                rulesFile={rulesFile} setRulesFile={setRulesFile}
+                senderFormFile={senderFormFile} setSenderFormFile={setSenderFormFile}
+                workerColors={workerColors} setWorkerColors={setWorkerColors}
+                onExport={handleExportColors} onImport={handleImportColors}
+              />
+            )}
+            {activeTab === 'share' && <ShareView shareHash={shareHash} />}
+            {activeTab === 'builder' && <FormBuilderView />}
+            {activeTab === 'filtros' && <FiltrosView />}
+            {activeTab === 'responder' && <ResponderView />}
+            {activeTab === 'notifications' && <NotificationsView />}
+            {activeTab === 'consolidar' && (
+              <ConsolidationView 
+                baseFile={baseFile} setBaseFile={setBaseFile}
+                employeeFiles={employeeFiles} setEmployeeFiles={setEmployeeFiles}
+                workerColors={workerColors}
+              />
+            )}
+          </div>
+        </main>
+      </div>
+    </SignedIn>
+    <SignedOut>
+      <div className="min-h-screen flex items-center justify-center bg-[#F0F2F5]">
+        <SignIn />
+      </div>
+    </SignedOut>
+    </>
   );
 }

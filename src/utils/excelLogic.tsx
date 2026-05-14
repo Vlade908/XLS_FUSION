@@ -1,5 +1,3 @@
-import * as XLSX from 'xlsx-js-style';
-
 /**
  * Limpa strings do Excel, removendo códigos de quebra de linha internos (_x000D_)
  * e normalizando espaços em branco.

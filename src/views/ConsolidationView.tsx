@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx-js-style';
 import { FileCard } from '../components/FileCard';
 import { PreFlightModal } from '../components/PreFlightModal';
-import { normID, normName, smartClean, evaluateCheckbox } from '../utils/excelLogic';
+import { normName, smartClean, evaluateCheckbox } from '../utils/excelLogic';
 
 interface Props {
   baseFile: File | null; setBaseFile: (f: File | null) => void;
@@ -11,6 +11,7 @@ interface Props {
 }
 
 export default function ConsolidationView({ baseFile, setBaseFile, employeeFiles, setEmployeeFiles, workerColors }: Props) {
+  void workerColors;
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPreFlightOpen, setIsPreFlightOpen] = useState(false);
   const [previewItems, setPreviewItems] = useState<any[]>([]);
