@@ -1,93 +1,107 @@
-# Database Configuration Guide
+# Configuração do Banco de Dados 🗄️
 
-Este projeto suporta dois tipos de banco de dados:
-- **SQLite local** (padrão, desenvolvimento local sem dependências)
-- **MongoDB Atlas** (produção, dados em nuvem)
+O **XLS_FUSION** utiliza **MongoDB** como banco de dados principal, acessado por duas bibliotecas em paralelo:
 
-## Configuração Padrão (SQLite Local)
+| Biblioteca | Papel |
+|---|---|
+| **Mongoose** | ORM principal — schemas, models e queries |
+| **Prisma** | Geração de tipos TypeScript e utilitário de studio |
 
-1. O arquivo `.env` vem com `MONGO_URI` vazio
-2. Na primeira execução, execute:
-   ```bash
-   npm run db:migrate
-   ```
-3. O Prisma criará um banco SQLite em `prisma/dev.db`
-4. Execute a aplicação normalmente:
-   ```bash
-   npm run dev
-   ```
+---
 
-## Migrando para MongoDB Atlas
+## Opções de Banco
+
+### ☁️ MongoDB Atlas (Recomendado — Produção e Desenvolvimento)
 
 1. Crie uma conta em [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
-2. Crie um cluster e um usuário
-3. Copie a connection string (URI)
-4. Atualize `.env`:
+2. Crie um cluster gratuito (M0)
+3. Crie um usuário de banco de dados com senha
+4. Em **Network Access**, libere o IP `0.0.0.0/0` (ou o IP específico da sua máquina)
+5. Copie a **Connection String** no formato:
+   ```
+   mongodb+srv://<usuario>:<senha>@cluster0.exemplo.mongodb.net/xls_fusion?retryWrites=true&w=majority
+   ```
+6. Cole no `.env`:
    ```env
-   MONGO_URI=mongodb+srv://user:password@cluster.mongodb.net/xls_fusion?retryWrites=true&w=majority
-   ```
-5. Atualize o schema para MongoDB (veja seção abaixo)
-6. Rode a aplicação:
-   ```bash
-   npm run dev
+   MONGO_URI=mongodb+srv://...
+   DATABASE_URL=mongodb+srv://...
    ```
 
-## Alternando entre SQLite e MongoDB
+---
 
-### Para usar SQLite:
-```env
-MONGO_URI=
-```
-- O app automaticamente usa SQLite local
-- Banco criado em `prisma/dev.db`
+### 🏠 MongoDB Local (Desenvolvimento rápido)
 
-### Para usar MongoDB Atlas:
+Se você tiver o MongoDB instalado localmente ou via Docker:
+
 ```env
-MONGO_URI=mongodb+srv://user:password@cluster.mongodb.net/database
+MONGO_URI=mongodb://localhost:27017/xls_fusion
+DATABASE_URL=mongodb://localhost:27017/xls_fusion
 ```
-- O app automaticamente conecta a MongoDB
+
+**Via Docker (sem instalar MongoDB):**
+```bash
+docker run -d --name mongo-local -p 27017:27017 mongo:7.0
+```
+
+---
+
+## Variáveis de Ambiente
+
+| Variável | Obrigatória | Descrição |
+|---|---|---|
+| `MONGO_URI` | ✅ Sim | URI completa de conexão com o MongoDB |
+| `DATABASE_URL` | ✅ Sim | Mesma URI — usada pelo Prisma |
+| `JWT_SECRET` | ✅ Sim | Segredo para assinar tokens JWT |
+| `PORT` | ❌ Não | Porta do backend (padrão: `8080`) |
+
+---
+
+## Collections Criadas Automaticamente
+
+O Mongoose cria as collections no primeiro uso, não é necessário nenhum passo de migração manual:
+
+| Collection | Model | Descrição |
+|---|---|---|
+| `users` | `UserModel` | Usuários registrados |
+| `forms` | `FormModel` | Formulários com questões |
+| `accessrequests` | `AccessRequestModel` | Pedidos de acesso |
+| `responses` | `ResponseModel` | Respostas de formulários públicos |
+| `sharedspreadsheets` | `SharedSpreadsheetModel` | Links de planilhas compartilhadas |
+| `uploads.files` | GridFS | Metadados de arquivos enviados |
+| `uploads.chunks` | GridFS | Dados binários dos arquivos |
+
+---
 
 ## Comandos Úteis
 
 ```bash
-# Executar migração
-npm run db:migrate
+# Sincronizar schema do Prisma com o banco
+npx prisma db push
 
-# Resetar banco de dados (deleta tudo!)
-npm run db:reset
+# Gerar tipos TypeScript do Prisma
+npx prisma generate
 
-# Abrir Prisma Studio (UI visual para dados)
-npm run db:studio
-
-# Iniciar app completo (server + frontend)
-npm run dev
-
-# Apenas servidor
-npm run server
+# Abrir o Prisma Studio (UI visual para navegar nos dados)
+npx prisma studio
 ```
 
-## Mudando de MongoDB para SQLite (ou vice-versa)
-
-Se você alternou de banco de dados, você pode precisar resetar:
-
-1. Deletar `prisma/dev.db` (se estava usando SQLite)
-2. Deletar pasta `prisma/migrations/` (se estava usando SQLite)
-3. Executar `npm run db:reset` para recrear
-
-## Notas de Desenvolvimento
-
-- **SQLite**: Perfeito para desenvolvimento local. Não precisa de servidor externo.
-- **MongoDB Atlas**: Melhor para produção e colaboração em equipe. Dados persistidos em nuvem.
-- Ambos os bancos usam o mesmo schema Prisma
+---
 
 ## Troubleshooting
 
-### "Command listCollections requires authentication"
-- Seu MongoDB Atlas está configurado corretamente mas você está tentando conectar ao MongoDB local
-- Verifique se `MONGO_URI` está configurado corretamente ou deixe vazio para usar SQLite
+### `MongoServerSelectionError: connection timed out`
+- Verifique se o IP da sua máquina está liberado no MongoDB Atlas (Network Access)
+- Se local, verifique se o MongoDB está rodando: `Get-Process mongod` (Windows) ou `ps aux | grep mongod` (Linux/Mac)
 
-### "SQLite database dev.db created at..."
-- Tudo funcionando! Seu banco local foi criado com sucesso
+### `Authentication failed`
+- Usuário ou senha incorretos na connection string
+- Tente recriar o usuário no painel do Atlas
 
-### Prisma Client gerado
-- Se receber erro de cliente Prisma desatualizado: `npm install` para recriar o cliente
+### `Unrecognized BSON field`
+- Versão do driver incompatível — execute `npm install` para garantir as versões do `package.json`
+
+### Processo na porta 8080 já em uso (Windows)
+```powershell
+Get-NetTCPConnection -LocalPort 8080 -State Listen | Select-Object OwningProcess
+Stop-Process -Id <PID> -Force
+```

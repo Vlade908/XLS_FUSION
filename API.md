@@ -1,197 +1,295 @@
-# XLS Fusion - Documentação da API
+# Referência Completa da API REST 📡
 
-## Visão Geral
-
-A API do XLS Fusion fornece endpoints para upload e processamento de arquivos Excel relacionados a auditorias. Todos os arquivos são armazenados de forma segura no MongoDB usando GridFS.
-
-## Base URL
+Base URL (desenvolvimento):
 ```
 http://localhost:8080/api
 ```
 
-## Autenticação
-Atualmente, a API não requer autenticação específica, mas todas as requisições são protegidas por CORS e validações de entrada.
-
-## Endpoints
-
-### GET /health
-
-Verifica se a aplicação e o banco de dados estão funcionando corretamente.
-
-**Método**: `GET`
-**URL**: `/api/health`
-**Parâmetros**: Nenhum
-
-**Resposta de Sucesso (200)**:
-```json
-"OK"
+Rotas marcadas com 🔐 exigem o header:
 ```
-
-**Resposta de Erro (500)**:
-```json
-{
-  "error": "Database connection failed"
-}
+Authorization: Bearer <JWT_TOKEN>
 ```
 
 ---
 
-### POST /upload-planilha
+## 1. Sistema de Saúde
 
-Faz upload de uma planilha Excel para processamento de auditoria.
+### `GET /api/health`
+Verifica se o servidor está online.
 
-**Método**: `POST`
-**URL**: `/api/upload-planilha`
-**Content-Type**: `multipart/form-data`
+**Resposta `200`:**
+```
+OK
+```
 
-**Parâmetros (FormData)**:
-- `file` (obrigatório): Arquivo Excel (.xlsx ou .xls)
+---
 
-**Limitações**:
-- Tamanho máximo: 50MB
-- Tipos aceitos: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `application/vnd.ms-excel`
+## 2. Autenticação
 
-**Resposta de Sucesso (201)**:
+### `POST /api/signup`
+Registra um novo usuário.
+
+**Body:**
+```json
+{ "email": "usuario@empresa.com", "password": "minhasenha123" }
+```
+
+**Resposta `201`:**
+```json
+{
+  "token": "eyJhbGci...",
+  "user": { "email": "usuario@empresa.com" }
+}
+```
+
+**Erros:** `400` campos ausentes | `409` e-mail já cadastrado
+
+---
+
+### `POST /api/login`
+Autentica um usuário existente.
+
+**Body:**
+```json
+{ "email": "usuario@empresa.com", "password": "minhasenha123" }
+```
+
+**Resposta `200`:**
+```json
+{
+  "token": "eyJhbGci...",
+  "user": { "email": "usuario@empresa.com" }
+}
+```
+
+**Erros:** `400` campos ausentes | `401` credenciais inválidas
+
+---
+
+### `GET /api/me` 🔐
+Retorna os dados do usuário autenticado.
+
+**Resposta `200`:**
+```json
+{ "user": { "email": "usuario@empresa.com" } }
+```
+
+---
+
+## 3. Formulários
+
+### `GET /api/forms` 🔐
+Lista todos os formulários acessíveis ao usuário logado (proprietário, e-mail autorizado ou domínio autorizado).
+
+**Resposta `200`:**
+```json
+[
+  {
+    "_id": "6a0b2ff465019a9fb55a81a4",
+    "name": "Formulário de Auditoria",
+    "title": "Auditoria Q1 2026",
+    "description": "Coleta de dados do primeiro trimestre",
+    "ownerEmail": "admin@empresa.com",
+    "allowedEmails": ["auditor@empresa.com"],
+    "allowedDomains": ["empresa.com"],
+    "questions": [...],
+    "isOwner": true,
+    "hasAccess": true
+  }
+]
+```
+
+---
+
+### `POST /api/forms` 🔐
+Cria um novo formulário ou atualiza um existente (se `_id` for enviado).
+
+**Body (criação):**
+```json
+{
+  "name": "Meu Formulário",
+  "title": "Título exibido",
+  "description": "Descrição do formulário",
+  "questions": [
+    {
+      "id": "uuid-gerado-no-frontend",
+      "label": "A empresa possui CNPJ ativo?",
+      "type": "simnao",
+      "options": [],
+      "parentId": null,
+      "showWhenValue": ""
+    }
+  ],
+  "allowedEmails": ["auditor@empresa.com"],
+  "allowedDomains": ["empresa.com"]
+}
+```
+
+**Body (atualização — inclua `_id`):**
+```json
+{ "_id": "6a0b2ff465019a9fb55a81a4", "name": "Nome atualizado", ... }
+```
+
+**Respostas:** `201` criado | `200` atualizado | `403` não é o dono | `404` não encontrado
+
+---
+
+## 4. Formulários Públicos (sem autenticação)
+
+### `GET /api/public-forms/:id`
+Retorna a estrutura de um formulário para o respondente público.
+
+**Resposta `200`:**
+```json
+{
+  "_id": "6a0b2ff465019a9fb55a81a4",
+  "name": "Formulário de Auditoria",
+  "title": "Auditoria Q1 2026",
+  "description": "...",
+  "questions": [...],
+  "allowedEmails": [...],
+  "allowedDomains": [...],
+  "ownerEmail": "admin@empresa.com"
+}
+```
+
+**Erros:** `404` formulário não encontrado
+
+---
+
+### `POST /api/public-forms/:id/responses`
+Envia as respostas de um formulário público.
+
+**Body:**
+```json
+{
+  "responderEmail": "respondente@empresa.com",
+  "data": {
+    "uuid-da-questao-1": "Sim",
+    "uuid-da-questao-2": "Resposta escrita aqui",
+    "uuid-da-questao-3": ["Opção A", "Opção C"]
+  }
+}
+```
+
+**Respostas:** `201` enviado | `400` e-mail ausente | `403` e-mail não autorizado | `404` formulário não encontrado
+
+---
+
+## 5. Pedidos de Acesso
+
+### `POST /api/forms/:formId/request-access` 🔐
+Solicita acesso a um formulário restrito.
+
+**Body:**
+```json
+{ "message": "Preciso acessar para a auditoria do setor X" }
+```
+
+**Respostas:** `201` pedido criado | `200` já tem acesso | `409` pedido pendente já existe
+
+---
+
+### `GET /api/access-requests` 🔐
+Lista todos os pedidos de acesso pendentes para os formulários do usuário logado.
+
+**Resposta `200`:**
+```json
+[
+  {
+    "_id": "...",
+    "formId": "...",
+    "formName": "Formulário de Auditoria",
+    "requesterEmail": "auditor@empresa.com",
+    "status": "pending",
+    "message": "Preciso acessar...",
+    "createdAt": "2026-05-18T..."
+  }
+]
+```
+
+---
+
+### `POST /api/forms/:formId/requests/:requestId/:action` 🔐
+Aprova ou nega um pedido de acesso. `:action` deve ser `approve` ou `deny`.
+
+**Resposta `200`:**
+```json
+{ "message": "Pedido aprovado com sucesso." }
+```
+
+**Erros:** `400` ação inválida | `403` não é o dono do formulário | `404` pedido não encontrado
+
+---
+
+## 6. Upload de Arquivos
+
+### `POST /api/upload-planilha` 🔐
+Faz upload de uma planilha Excel para o GridFS.
+
+**Content-Type:** `multipart/form-data`  
+**Campo:** `file` (arquivo Excel)
+
+**Resposta `201`:**
 ```json
 {
   "message": "Planilha salva!",
-  "file": {
-    "id": "507f1f77bcf86cd799439011",
-    "filename": "auditoria-1734567890123.xlsx",
-    "originalname": "relatorio_auditoria.xlsx",
-    "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "size": 245760
-  }
-}
-```
-
-**Resposta de Erro (400)**:
-```json
-{
-  "error": "Arquivo não encontrado."
-}
-```
-
-**Resposta de Erro (413)**:
-```json
-{
-  "error": "File too large"
-}
-```
-
-**Resposta de Erro (500)**:
-```json
-{
-  "error": "Erro interno do servidor"
+  "file": { "id": "...", "filename": "...", "originalname": "...", "mimetype": "...", "size": 12345 }
 }
 ```
 
 ---
 
-### POST /upload-anexo
+### `POST /api/upload-anexo` 🔐
+Faz upload de um anexo (PDF, imagem, etc.) vinculado a uma questão.
 
-Faz upload de um anexo relacionado a uma questão específica de auditoria.
+**Content-Type:** `multipart/form-data`  
+**Campos:** `file`, `responder`, `questionNumber`, `formName`
 
-**Método**: `POST`
-**URL**: `/api/upload-anexo`
-**Content-Type**: `multipart/form-data`
+---
 
-**Parâmetros (FormData)**:
-- `file` (obrigatório): Arquivo a ser anexado
-- `responder` (obrigatório): Nome do responsável pela resposta
-- `questionNumber` (obrigatório): Número da questão
-- `formName` (opcional): Nome do formulário (padrão: "geral")
+## 7. Compartilhamento de Planilhas (Legado)
 
-**Limitações**:
-- Tamanho máximo: 50MB
-- Nomes são sanitizados (acentos removidos, caracteres especiais substituídos)
+### `POST /api/share-spreadsheet` 🔐
+Gera um hash único de compartilhamento para uma planilha já enviada.
 
-**Resposta de Sucesso (201)**:
+**Body:**
 ```json
-{
-  "message": "Anexo salvo com sucesso!",
-  "file": {
-    "id": "507f1f77bcf86cd799439012",
-    "filename": "documento-1734567890123.pdf",
-    "originalname": "comprovante.pdf",
-    "mimetype": "application/pdf",
-    "size": 102400,
-    "responder": "João Silva",
-    "questionNumber": "5",
-    "formName": "auditoria_qualidade"
-  }
-}
+{ "fileId": "gridfs-object-id", "originalname": "relatorio.xlsx", "description": "Relatório Q1" }
 ```
 
-**Resposta de Erro (400)**:
+**Resposta `201`:**
 ```json
-{
-  "error": "Arquivo não encontrado."
-}
+{ "hash": "abc123xyz", "shareUrl": "http://localhost:5173/share/abc123xyz" }
 ```
 
-## Códigos de Status HTTP
+---
 
-- **200**: OK - Requisição bem-sucedida
-- **201**: Created - Recurso criado com sucesso
-- **400**: Bad Request - Parâmetros inválidos
-- **413**: Payload Too Large - Arquivo muito grande
-- **500**: Internal Server Error - Erro interno do servidor
+### `GET /api/share/:hash`
+Retorna metadados de uma planilha compartilhada.
 
-## Tratamento de Erros
+### `GET /api/share/:hash/download`
+Faz download (stream) do arquivo diretamente do GridFS.
 
-Todos os erros seguem o formato:
+---
+
+## Tipos de Questão
+
+| Tipo | Descrição | `options` |
+|---|---|---|
+| `simnao` | Sim / Não | `[]` |
+| `alternativa` | Rádio — uma opção | `["Op A", "Op B"]` |
+| `check` | Checkbox — múltiplas opções | `["Op A", "Op B"]` |
+| `respostaescrita` | Textarea livre | `[]` |
+| `data` | Seletor de data | `[]` |
+| `link` | Campo de URL | `[]` |
+
+## Lógica Condicional
+Para criar uma questão dependente, preencha no objeto da questão:
+- `parentId`: ID UUID da questão pai
+- `showWhenValue`: Valor exato que a questão pai deve ter para esta questão aparecer
+
+Exemplo: questão que só aparece se a resposta da questão pai for `"Sim"`:
 ```json
-{
-  "error": "Descrição do erro"
-}
+{ "parentId": "uuid-da-questao-pai", "showWhenValue": "Sim" }
 ```
-
-## Segurança
-
-- **Limitação de Taxa**: Não implementada (recomendado para produção)
-- **Validação de Arquivos**: Apenas tipos MIME específicos são aceitos
-- **Sanitização**: Nomes de arquivos e caminhos são limpos automaticamente
-- **CORS**: Configurado para aceitar origens específicas
-- **Helmet**: Headers de segurança aplicados
-
-## Exemplos de Uso
-
-### Upload de Planilha com cURL
-```bash
-curl -X POST http://localhost:8080/api/upload-planilha \
-  -F "file=@relatorio.xlsx"
-```
-
-### Upload de Anexo com cURL
-```bash
-curl -X POST http://localhost:8080/api/upload-anexo \
-  -F "file=@comprovante.pdf" \
-  -F "responder=João Silva" \
-  -F "questionNumber=5" \
-  -F "formName=auditoria_qualidade"
-```
-
-### Verificação de Saúde
-```bash
-curl http://localhost:8080/api/health
-```
-
-## Desenvolvimento
-
-Para testar a API localmente:
-
-1. Inicie o servidor:
-   ```bash
-   npm run dev
-   ```
-
-2. Use ferramentas como Postman, Insomnia ou cURL para testar os endpoints
-
-3. Verifique os logs do servidor para debugging
-
-## Monitoramento
-
-- Logs de erro são gravados no console
-- Conexões com MongoDB são monitoradas
-- Health checks estão disponíveis para monitoramento externo

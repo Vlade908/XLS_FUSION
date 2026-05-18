@@ -1,297 +1,238 @@
-# XLS Fusion - Guia de Desenvolvimento
+# Guia de Desenvolvimento 🛠️
 
-## Visão Geral da Arquitetura
+Este documento descreve a arquitetura, convenções e fluxos de trabalho para contribuir com o **XLS_FUSION**.
 
-XLS Fusion é uma aplicação full-stack composta por:
-- **Frontend**: React + TypeScript + Vite
-- **Backend**: Express.js + TypeScript + MongoDB
-- **Infraestrutura**: Docker + Docker Compose
+---
+
+## Stack Tecnológica
+
+| Camada | Tecnologia |
+|---|---|
+| Frontend | React 18 + TypeScript + Vite |
+| Estilização | Tailwind CSS |
+| Backend | Node.js + Express 5 + TypeScript |
+| ORM | Mongoose (principal) + Prisma (tipos/studio) |
+| Banco de Dados | MongoDB Atlas |
+| Autenticação | JWT + bcrypt |
+| Upload de Arquivos | Multer + GridFS (MongoDB) |
+| Runtime | tsx watch (desenvolvimento) |
+| Processos Paralelos | concurrently |
+
+---
+
+## Arquitetura MVC
+
+O backend segue estritamente o padrão **MVC**:
+
+```
+Requisição HTTP
+     │
+     ▼
+routes.ts          ← apenas declara qual Controller trata cada rota
+     │
+     ▼
+middleware/        ← authMiddleware valida JWT antes de chegar no controller
+     │
+     ▼
+controllers/       ← toda lógica de negócio fica aqui
+     │
+     ▼
+models/index.ts    ← acesso ao banco via Mongoose
+     │
+     ▼
+MongoDB Atlas
+```
+
+---
 
 ## Estrutura do Projeto
 
 ```
 src/
-├── components/          # Componentes React reutilizáveis
-│   ├── FileCard.tsx    # Componente para upload de arquivos
-│   ├── AuditorUpload.tsx
-│   ├── AssignmentRules.tsx
-│   ├── PreFlightModal.tsx
-│   └── FileUpload.tsx
-├── server/             # Backend Express
-│   ├── index.ts        # Ponto de entrada do servidor
-│   ├── routes.ts       # Definição das rotas da API
-│   ├── gridfs.ts       # Configuração do GridFS
-│   └── db.ts          # Conexão com MongoDB
-├── utils/              # Utilitários
-│   ├── excelLogic.tsx  # Lógica de processamento Excel
-│   └── documentProcessor.ts
-├── views/              # Páginas/Views da aplicação
-│   ├── PreparationView.tsx
-│   ├── FiltrosView.tsx
-│   ├── ResponderView.tsx
-│   └── ConsolidationView.tsx
-├── App.tsx             # Componente principal
-├── main.tsx            # Ponto de entrada React
-└── index.css           # Estilos globais
+├── App.tsx                     # Roteamento de views do frontend (hash-based)
+├── main.tsx                    # Entry point React
+├── index.css                   # Estilos globais (Tailwind @base)
+│
+├── components/                 # Componentes reutilizáveis
+│   ├── AuthView.tsx            # Tela de login/registro
+│   ├── FileCard.tsx            # Card de upload de arquivo
+│   ├── FileUpload.tsx          # Input de upload estilizado
+│   ├── AuditorUpload.tsx       # Upload de planilhas de auditoria
+│   ├── AssignmentRules.tsx     # Regras de atribuição
+│   └── PreFlightModal.tsx      # Modal de confirmação pré-envio
+│
+├── views/                      # Páginas completas
+│   ├── FormBuilderView.tsx     # Construtor de formulários (principal)
+│   ├── WebResponderView.tsx    # Tela pública de resposta (sem login)
+│   ├── ResponderView.tsx       # Tela interna de resposta (com login)
+│   ├── PreparationView.tsx     # Preparação de planilhas Excel
+│   ├── FiltrosView.tsx         # Filtros de auditoria
+│   ├── ConsolidationView.tsx   # Consolidação de respostas
+│   ├── NotificationsView.tsx   # Notificações e pedidos de acesso
+│   └── ShareView.tsx           # Compartilhamento de planilhas (legado)
+│
+├── context/
+│   └── AuthContext.tsx         # Contexto de autenticação global
+│
+├── utils/                      # Utilitários frontend
+│   ├── excelLogic.tsx          # Processamento de arquivos Excel
+│   └── documentProcessor.ts   # Processamento de documentos
+│
+└── server/                     # Backend
+    ├── index.ts                # Entry point Express
+    ├── routes.ts               # Mapa de rotas MVC
+    ├── auth.ts                 # JWT + bcrypt
+    ├── db.ts                   # Conexão MongoDB + Prisma
+    ├── db-config.ts            # Configuração de variáveis de ambiente
+    ├── gridfs.ts               # Multer + GridFS para uploads
+    ├── types.d.ts              # Extensão de tipos Express
+    │
+    ├── models/
+    │   └── index.ts            # Todos os Schemas Mongoose
+    │
+    ├── middleware/
+    │   └── authMiddleware.ts   # requireAuth (JWT guard)
+    │
+    └── controllers/
+        ├── authController.ts       # signup, login, me
+        ├── formController.ts       # CRUD formulários + acessos
+        ├── publicFormController.ts # Formulário público + respostas
+        └── fileController.ts       # Upload e compartilhamento
 ```
 
-## Fluxo de Dados
+---
 
-### 1. Preparação
-```
-Arquivo de Regras (.xlsx) → Processamento → Mapeamento Responsável ↔ Questão
-Arquivo Formulário (.xlsx) → Aplicação de Cores → Download Formulário Colorido
-```
+## Roteamento do Frontend
 
-### 2. Filtros
-```
-Planilha de Auditoria (.xlsx) → Upload → GridFS → Processamento → Confirmação
-```
+O frontend usa **hash-based routing** sem React Router:
 
-### 3. Responder
-```
-Planilha de Respostas (.xlsx) → Carregamento → Seleção Responsável → Navegação Questões → Salvamento
-```
-
-### 4. Consolidação
-```
-Planilha Base + Múltiplas Respostas → Agregação → Relatório Consolidado → Download
-```
-
-## Componentes Principais
-
-### FileCard
-Componente reutilizável para upload de arquivos com drag-and-drop.
-
-**Props**:
 ```typescript
-interface FileCardProps {
-  title: string;
-  subtitle: string;
-  icon: string;
-  file: File | FileList | null;
-  onFileChange: (file: any) => void;
-  multiple?: boolean;
-  color: string;
-}
+// App.tsx detecta:
+// /#preparacao  → PreparationView
+// /#filtros     → FiltrosView
+// /#formularios → FormBuilderView
+// /#notificacoes → NotificationsView
+// /share-form/:id → WebResponderView (URL limpa, sem hash)
 ```
 
-### Excel Logic Utils
-Funções utilitárias para processamento de Excel:
+A rota `/share-form/:id` é especial: usa `pushState` ao invés de hash para gerar links limpos que possam ser compartilhados externamente.
 
-- `smartClean()`: Limpa strings do Excel
-- `normID()`: Normaliza IDs de questões
-- `hexToExcelColor()`: Converte cores hex para formato Excel
-- `getContrastColor()`: Calcula cor de contraste
-- `evaluateCheckbox()`: Avalia valores booleanos
+---
 
-## Gerenciamento de Estado
+## Fluxo de Criação e Compartilhamento de Formulário
 
-A aplicação usa estado local do React com os seguintes estados globais:
+```
+1. Usuário cria formulário em FormBuilderView
+         ↓
+2. POST /api/forms → salvo no MongoDB com _id gerado
+         ↓
+3. Usuário clica em "Compartilhar" no card do formulário
+         ↓
+4. Link gerado: http://localhost:5173/share-form/{_id}
+         ↓
+5. Respondente acessa o link → WebResponderView carrega
+         ↓
+6. GET /api/public-forms/{_id} → retorna estrutura do formulário
+         ↓
+7. Respondente preenche → POST /api/public-forms/{_id}/responses
+         ↓
+8. Resposta salva em ResponseModel no MongoDB
+```
 
-- `activeTab`: Aba atual da navegação
-- `rulesFile`: Arquivo de regras carregado
-- `senderFormFile`: Arquivo do formulário
-- `baseFile`: Arquivo base para consolidação
-- `employeeFiles`: Lista de arquivos de funcionários
-- `workerColors`: Mapeamento de cores por responsável
+---
 
-## Processamento de Excel
+## Lógica Condicional de Questões
 
-### Leitura de Arquivos
+O sistema suporta dependências entre questões via `parentId` e `showWhenValue`:
+
 ```typescript
-import * as XLSX from 'xlsx-js-style';
-
-// Leitura com estilos preservados
-const wb = XLSX.read(await file.arrayBuffer(), { cellStyles: true });
-
-// Acesso a uma aba específica
-const ws = wb.Sheets[wb.SheetNames[0]];
-
-// Conversão para array de arrays
-const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+// Questão só aparece se a questão pai tiver valor específico
+const isVisible = !question.parentId || 
+  answers[question.parentId] === question.showWhenValue;
 ```
 
-### Escrita de Arquivos
+A mesma lógica funciona em:
+- **FormBuilderView** (preview interativo)
+- **WebResponderView** (resposta pública)
+- **No envio**: apenas as questões visíveis têm suas respostas enviadas
+
+---
+
+## Convenções de Código
+
+### Nomenclatura
+- **Controllers**: camelCase, sufixo `Controller.ts` (ex: `authController.ts`)
+- **Views**: PascalCase, sufixo `View.tsx` (ex: `FormBuilderView.tsx`)
+- **Componentes**: PascalCase (ex: `FileCard.tsx`)
+- **Funções de Controller**: camelCase descritivo (ex: `listForms`, `saveForm`, `handleAccessRequest`)
+
+### Controllers
 ```typescript
-// Criação de nova planilha
-const newWb = XLSX.utils.book_new();
-const newWs = XLSX.utils.aoa_to_sheet(data);
-
-// Aplicação de estilos
-newWs['A1'].s = getBaseStyle('#334155', '#ffffff');
-
-// Salvamento
-XLSX.writeFile(newWb, 'output.xlsx');
-```
-
-## API Backend
-
-### Estrutura das Rotas
-```typescript
-// server/routes.ts
-export function registerRoutes(app: Express) {
-  app.post('/api/upload-planilha', upload.single('file'), handler);
-  app.post('/api/upload-anexo', upload.single('file'), handler);
-  app.get('/api/health', handler);
-}
-```
-
-### GridFS para Uploads
-```typescript
-// server/gridfs.ts
-const storage = new GridFsStorage({
-  url: process.env.MONGO_URI,
-  file: (req, file) => ({
-    filename: `${Date.now()}-${file.originalname}`,
-    bucketName: 'uploads'
-  })
-});
-```
-
-## Desenvolvimento Local
-
-### Pré-requisitos
-- Node.js 20+
-- Docker (para MongoDB)
-- Git
-
-### Configuração
-```bash
-# Clone o repositório
-git clone <repo>
-cd xls_fusion
-
-# Instale dependências
-npm install
-
-# Configure ambiente
-cp .env.example .env
-
-# Inicie MongoDB
-docker run -d -p 27017:27017 mongo:7.0
-
-# Execute em modo desenvolvimento
-npm run dev
-```
-
-### Scripts Disponíveis
-```json
-{
-  "dev": "concurrently \"npm run server\" \"vite\"",
-  "server": "tsx src/server/index.ts",
-  "build": "tsc && vite build",
-  "lint": "eslint .",
-  "preview": "vite preview",
-  "typecheck": "tsc --noEmit -p tsconfig.app.json"
-}
-```
-
-## Testes
-
-### Estrutura de Testes
-```
-tests/
-├── unit/              # Testes unitários
-├── integration/       # Testes de integração
-└── e2e/              # Testes end-to-end
-```
-
-### Configuração do Jest
-```javascript
-// jest.config.js
-module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'jsdom',
-  setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
-  moduleNameMapping: {
-    '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
+// ✅ Correto — controller isolado com tipagem
+export const meuController = async (req: Request, res: Response) => {
+  try {
+    // lógica aqui
+  } catch (err: any) {
+    console.error('❌ [NOME ERROR]:', err.message);
+    res.status(500).json({ error: err.message });
   }
 };
 ```
 
-## Docker
+### Rotas
+```typescript
+// ✅ Correto — routes.ts é apenas mapa
+app.get('/api/recurso', requireAuth, meuController);
 
-### Desenvolvimento
-```yaml
-# docker-compose.dev.yml
-version: '3.9'
-services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    volumes:
-      - .:/app
-      - /app/node_modules
-    ports:
-      - '8080:8080'
-    environment:
-      - NODE_ENV=development
+// ❌ Errado — lógica dentro do routes.ts
+app.get('/api/recurso', async (req, res) => { /* lógica */ });
 ```
 
-### Produção
-```yaml
-# docker-compose.yml
-version: '3.9'
-services:
-  app:
-    build: .
-    ports:
-      - '8080:8080'
-    depends_on:
-      mongo:
-        condition: service_healthy
-  mongo:
-    image: mongo:7.0
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+---
+
+## Variáveis de Ambiente
+
+| Variável | Obrigatória | Exemplo |
+|---|---|---|
+| `MONGO_URI` | ✅ | `mongodb+srv://user:pass@cluster.net/db` |
+| `DATABASE_URL` | ✅ | idem acima (para o Prisma) |
+| `JWT_SECRET` | ✅ | `minha_chave_super_secreta_42chars` |
+| `PORT` | ❌ | `8080` (padrão) |
+
+---
+
+## Scripts
+
+```bash
+npm run dev          # Frontend (Vite) + Backend (tsx watch) em paralelo
+npm run server       # Apenas backend com hot-reload
+npm run build        # Build de produção
+npm run typecheck    # Validação TypeScript sem compilar
+npm run lint         # ESLint
+npx prisma studio    # UI visual para o banco de dados
+npx prisma generate  # Regenerar tipos Prisma
+npx prisma db push   # Sincronizar schema com o banco
 ```
 
-## Boas Práticas
-
-### Frontend
-- Use TypeScript para tipagem forte
-- Mantenha componentes pequenos e reutilizáveis
-- Use hooks customizados para lógica complexa
-- Implemente loading states e error boundaries
-
-### Backend
-- Valide todas as entradas de usuário
-- Use middleware para tratamento de erros
-- Implemente logging adequado
-- Mantenha endpoints RESTful
-
-### Geral
-- Escreva testes para funcionalidades críticas
-- Documente APIs e componentes
-- Use commits descritivos
-- Mantenha dependências atualizadas
+---
 
 ## Troubleshooting
 
-### Problemas Comuns
-
-1. **Erro de CORS**: Verifique configuração do CORS no backend
-2. **Upload falha**: Verifique limites de tamanho e tipos MIME
-3. **MongoDB não conecta**: Verifique MONGO_URI e status do container
-4. **Build falha**: Verifique dependências e TypeScript errors
-
-### Debug
-```bash
-# Logs do Docker
-docker compose logs -f
-
-# Debug do frontend
-npm run dev -- --host 0.0.0.0
-
-# Testes específicos
-npm test -- --testNamePattern="upload"
+### Processo "zumbi" na porta 8080 (Windows)
+Após `Ctrl+C`, o Node pode continuar em background. Identifique e encerre:
+```powershell
+Get-NetTCPConnection -LocalPort 8080 -State Listen | Select-Object OwningProcess
+Stop-Process -Id <PID> -Force
 ```
 
-## Contribuição
+### Erro `Unexpected token '<'... is not valid JSON`
+A API está retornando HTML em vez de JSON. Causas comuns:
+- Servidor antigo ainda rodando (processo zumbi — veja acima)
+- A rota `/api/...` não foi registrada — verifique se o backend reiniciou
 
-1. Crie uma branch para sua feature
-2. Escreva testes para novas funcionalidades
-3. Siga o padrão de commits
-4. Abra PR com descrição detalhada
+### TypeScript errors após mover arquivos
+Execute `npx tsc --noEmit` para ver erros. Atualize todos os caminhos de `import` para refletir a nova localização dos arquivos.
+
+### `MongoServerSelectionError`
+- Verifique `MONGO_URI` no `.env`
+- Libere seu IP no MongoDB Atlas (Network Access → `0.0.0.0/0`)

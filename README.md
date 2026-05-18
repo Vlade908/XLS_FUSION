@@ -1,75 +1,167 @@
 # XLS_FUSION 🚀
 
-XLS_FUSION é uma plataforma híbrida (React + Node.js/Express + MongoDB) projetada para construção de formulários inteligentes, dinâmicos e dependentes, voltados para ambientes corporativos e educacionais. 
+Plataforma full-stack para construção e distribuição de **formulários inteligentes** com lógica condicional, controle de acesso por e-mail/domínio e compartilhamento via link direto.
 
-O sistema permite a criação de formulários complexos (com lógica condicional), compartilhamento de acesso via e-mail/domínio, e possui uma tela de visualização pública responsiva e otimizada.
+Desenvolvida com **React + TypeScript + Vite** no frontend e **Node.js + Express + MongoDB** no backend, seguindo a arquitetura **MVC**.
 
 ---
 
-## 🛠️ Como rodar a aplicação do zero
+## ✨ Funcionalidades
 
-Siga este passo a passo para baixar o repositório e colocar a aplicação no ar no seu ambiente local de desenvolvimento.
+- 🔐 **Autenticação JWT** — registro, login e sessão persistente
+- 📋 **Construtor de Formulários** — criação visual com múltiplos tipos de questão
+- 🧠 **Lógica Condicional** — questões que aparecem/somem baseadas em respostas anteriores
+- 🌐 **Tela de Resposta Pública** — link compartilhável sem necessidade de login
+- 👥 **Controle de Acesso** — restrição por e-mail ou domínio corporativo
+- 📬 **Pedidos de Acesso** — workflow de solicitação e aprovação entre usuários
+- 📁 **Upload de Arquivos** — armazenamento no MongoDB via GridFS
+
+---
+
+## 🛠️ Setup do Zero
 
 ### Pré-requisitos
-Certifique-se de que sua máquina possui:
-- **Node.js** (versão 18 ou superior)
-- **Git** (para clonar o repositório)
-- Uma conta no **MongoDB Atlas** (ou MongoDB rodando localmente na porta 27017)
 
-### Passo 1: Clone o Repositório
-Abra seu terminal e clone o projeto na pasta desejada:
+| Ferramenta | Versão mínima |
+|---|---|
+| Node.js | 18+ |
+| Git | qualquer |
+| MongoDB Atlas | conta gratuita ou instância local na `27017` |
+
+### Passo 1 — Clone
 ```bash
 git clone https://github.com/SEU_USUARIO/XLS_FUSION.git
 cd XLS_FUSION
 ```
 
-### Passo 2: Instale as Dependências
-Instale todos os pacotes necessários pelo NPM (ou Yarn/Pnpm se preferir):
+### Passo 2 — Instale as dependências
 ```bash
 npm install
 ```
 
-### Passo 3: Configuração do Banco de Dados (.env)
-A aplicação exige conexão com um banco de dados MongoDB (recomendamos o MongoDB Atlas para nuvem, mas funciona perfeitamente local).
-Crie um arquivo chamado `.env` na raiz do projeto contendo as variáveis abaixo:
+### Passo 3 — Configure o ambiente
 
+Crie um arquivo `.env` na raiz do projeto:
 ```env
-# Porta onde o backend irá rodar (Padrão: 8080)
+# Porta do Backend (padrão: 8080)
 PORT=8080
 
-# URL de Conexão do MongoDB (Substitua por sua Connection String do Atlas ou local)
-MONGO_URI=mongodb+srv://<usuario>:<senha>@cluster0.exemplo.mongodb.net/xls_fusion?retryWrites=true&w=majority&appName=Cluster0
+# Connection String do MongoDB Atlas (ou local)
+MONGO_URI=mongodb+srv://<usuario>:<senha>@cluster0.exemplo.mongodb.net/xls_fusion?retryWrites=true&w=majority
 
-# URL do banco de dados (Variável auxiliar para o Prisma, caso esteja em uso)
-DATABASE_URL=mongodb+srv://<usuario>:<senha>@cluster0.exemplo.mongodb.net/xls_fusion?retryWrites=true&w=majority&appName=Cluster0
+# Mesma URI para o Prisma
+DATABASE_URL=mongodb+srv://<usuario>:<senha>@cluster0.exemplo.mongodb.net/xls_fusion?retryWrites=true&w=majority
 
-# Segredo para assinatura de Tokens JWT (crie uma senha forte)
+# Segredo JWT — use uma string longa e aleatória
 JWT_SECRET=sua_chave_secreta_super_segura_aqui
 ```
 
-### Passo 4: Sincronização e Geração do Prisma
-O sistema utiliza o Prisma para auxiliar no gerenciamento inicial e no Studio, além do Mongoose para esquemas dinâmicos. Sincronize o banco:
+> Você pode copiar o arquivo `.env.example` como ponto de partida: `cp .env.example .env`
+
+### Passo 4 — Sincronize o Prisma
 ```bash
 npx prisma generate
 npx prisma db push
 ```
 
-### Passo 5: Inicializando o Servidor
-Com tudo configurado, basta rodar o comando principal de desenvolvimento. Ele inicializa tanto o Front-end (Vite) quanto o Back-end (Express via tsx watch) simultaneamente:
+### Passo 5 — Inicie a aplicação
 ```bash
 npm run dev
 ```
 
-Acesse a aplicação no seu navegador:
-- **Painel Front-end:** `http://localhost:5173`
-- **Servidor Back-end (API):** `http://localhost:8080`
-
-🎉 Pronto! O XLS_FUSION está rodando e pronto para receber novos formulários.
+| Serviço | URL |
+|---|---|
+| Frontend (Vite) | http://localhost:5173 |
+| Backend (API) | http://localhost:8080 |
 
 ---
 
-## Estrutura Principal do Projeto
-* `src/views/`: Telas principais do frontend (React).
-* `src/components/`: Componentes visuais isolados do frontend.
-* `src/server/`: Backend em Node.js com as rotas, modelos de banco e lógica de autenticação.
-* `prisma/`: Definições esquemáticas do Prisma e conexão primária.
+## 📜 Scripts disponíveis
+
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | Inicia frontend + backend simultaneamente |
+| `npm run server` | Inicia apenas o backend (com hot-reload via tsx watch) |
+| `npm run build` | Compila TypeScript e gera o bundle de produção |
+| `npm run typecheck` | Valida tipagem TypeScript sem compilar |
+| `npm run lint` | Analisa o código com ESLint |
+| `npx prisma studio` | Abre o Prisma Studio (visualizador de dados) |
+
+---
+
+## 🗂️ Estrutura do Projeto
+
+```
+XLS_FUSION/
+├── src/
+│   ├── App.tsx                    # Roteamento principal do frontend
+│   ├── main.tsx                   # Entry point React
+│   ├── index.css                  # Estilos globais
+│   │
+│   ├── components/                # Componentes visuais reutilizáveis
+│   │   ├── AuthView.tsx
+│   │   ├── FileCard.tsx
+│   │   ├── FileUpload.tsx
+│   │   ├── AuditorUpload.tsx
+│   │   ├── AssignmentRules.tsx
+│   │   └── PreFlightModal.tsx
+│   │
+│   ├── views/                     # Páginas completas do frontend
+│   │   ├── FormBuilderView.tsx    # Construtor de formulários
+│   │   ├── WebResponderView.tsx   # Tela pública de resposta
+│   │   ├── ResponderView.tsx      # Tela de resposta interna
+│   │   ├── PreparationView.tsx
+│   │   ├── FiltrosView.tsx
+│   │   ├── ConsolidationView.tsx
+│   │   ├── NotificationsView.tsx
+│   │   └── ShareView.tsx
+│   │
+│   ├── context/                   # Context API (AuthContext)
+│   ├── utils/                     # Funções utilitárias
+│   │
+│   └── server/                    # Backend (MVC)
+│       ├── index.ts               # Entry point Express
+│       ├── routes.ts              # Mapa de rotas (sem lógica)
+│       ├── auth.ts                # JWT + bcrypt
+│       ├── db.ts                  # Conexão MongoDB + Prisma
+│       ├── db-config.ts           # Configuração de variáveis
+│       ├── gridfs.ts              # Multer + GridFS
+│       ├── types.d.ts             # Tipagens globais Express
+│       │
+│       ├── models/
+│       │   └── index.ts           # Todos os Schemas Mongoose
+│       │
+│       ├── middleware/
+│       │   └── authMiddleware.ts  # requireAuth (JWT guard)
+│       │
+│       └── controllers/
+│           ├── authController.ts       # signup, login, me
+│           ├── formController.ts       # CRUD formulários + acessos
+│           ├── publicFormController.ts # Rota pública + respostas
+│           └── fileController.ts       # Upload + compartilhamento
+│
+├── prisma/
+│   └── schema.prisma              # Schema do banco de dados
+├── .env.example                   # Modelo de variáveis de ambiente
+├── README.md                      # Este arquivo
+├── BACKEND.md                     # Documentação do backend e rotas
+├── API.md                         # Referência completa da API REST
+├── DATABASE.md                    # Guia de configuração do banco
+└── DEVELOPMENT.md                 # Guia de desenvolvimento e arquitetura
+```
+
+---
+
+## ⚠️ Atenção: Processo Zumbi no Windows
+
+Ao pressionar `Ctrl+C` no terminal, o Node.js do backend pode continuar rodando em segundo plano. Se ao reiniciar o servidor aparecer erros de "porta já em uso" ou as novas rotas não funcionarem:
+
+```powershell
+# Verificar qual processo está na porta 8080
+Get-NetTCPConnection -LocalPort 8080 -State Listen | Select-Object OwningProcess
+
+# Encerrar pelo PID encontrado acima
+Stop-Process -Id <PID> -Force
+```
+
+Depois disso, rode `npm run dev` normalmente.
