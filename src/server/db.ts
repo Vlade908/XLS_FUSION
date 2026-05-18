@@ -1,50 +1,34 @@
-import mongoose from 'mongoose';
+import { PrismaClient } from '@prisma/client';
+import { configureDatabase } from './db-config.js';
 
-// Detecta se está rodando em Docker ou localmente
-const isDocker = process.env.DOCKER_CONTAINER === 'true' || process.env.NODE_ENV === 'production';
+// Configura DATABASE_PROVIDER e DATABASE_URL automaticamente
+configureDatabase();
 
-const MONGO_URI = process.env.MONGO_URI ||
-  (isDocker
-    ? 'mongodb://root:example@mongo:27017/xls_fusion?authSource=admin'
-    : 'mongodb://root:example@localhost:27017/xls_fusion?authSource=admin'
-  );
+let prismaInstance: PrismaClient | null = null;
+
+export function getPrisma(): PrismaClient {
+  if (!prismaInstance) {
+    prismaInstance = new PrismaClient({
+      log: ['error', 'warn'],
+    });
+  }
+  return prismaInstance;
+}
 
 export async function connectDB() {
-  if (mongoose.connection.readyState === 1) {
-    return mongoose.connection;
-  }
-
-  mongoose.set('strictQuery', false);
+  const prisma = getPrisma();
 
   try {
-    await mongoose.connect(MONGO_URI, {
-      serverSelectionTimeoutMS: 5000,
-    });
-
-    const sanitizedUri = MONGO_URI.replace(/(mongodb:\/\/)(.*@)/, '$1***:***@');
-    console.log(`✅ MongoDB connected (${sanitizedUri})`);
-
-    return mongoose.connection;
+    // Testa a conexão
   } catch (error) {
-    console.error('❌ Failed to connect to MongoDB:', error);
-
-    // Se falhou e estamos em desenvolvimento, tenta localhost como fallback
-    if (!isDocker && MONGO_URI.includes('mongo:')) {
-      console.log('🔄 Trying localhost fallback...');
-      const fallbackUri = 'mongodb://localhost:27017/xls_fusion';
-
-      try {
-        await mongoose.connect(fallbackUri, {
-          serverSelectionTimeoutMS: 5000,
-        });
-        console.log(`✅ MongoDB connected to localhost (${fallbackUri})`);
-        return mongoose.connection;
-      } catch (fallbackError) {
-        console.error('❌ Fallback connection also failed:', fallbackError);
-        throw fallbackError;
-      }
-    }
-
+    console.error('❌ Failed to connect to database:', error);
     throw error;
+  }
+}
+
+export async function disconnectDB() {
+  if (prismaInstance) {
+    await prismaInstance.$disconnect();
+    prismaInstance = null;
   }
 }

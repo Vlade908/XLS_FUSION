@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../context/AuthContext.tsx';
 import { FileCard } from '../components/FileCard';
 
 interface ShareInfo {
@@ -22,7 +22,7 @@ const normalizeHashInput = (value: string) => {
 };
 
 export default function ShareView({ shareHash }: Props) {
-  const { user } = useUser();
+  const { user, authFetch } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [shareUrl, setShareUrl] = useState('');
   const [shareCode, setShareCode] = useState(shareHash || '');
@@ -44,6 +44,11 @@ export default function ShareView({ shareHash }: Props) {
       return;
     }
 
+    if (!user) {
+      setStatus('Faça login para criar links de compartilhamento.');
+      return;
+    }
+
     setLoading(true);
     setStatus('Carregando arquivo...');
 
@@ -51,7 +56,7 @@ export default function ShareView({ shareHash }: Props) {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const uploadRes = await fetch('/api/upload-planilha', {
+      const uploadRes = await authFetch('/api/upload-planilha', {
         method: 'POST',
         body: formData,
       });
@@ -68,12 +73,11 @@ export default function ShareView({ shareHash }: Props) {
       }
 
       setStatus('Criando link público...');
-      const shareRes = await fetch('/api/share-spreadsheet', {
+      const shareRes = await authFetch('/api/share-spreadsheet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fileId,
-          ownerEmail: user?.primaryEmailAddress?.emailAddress || undefined,
           originalname: selectedFile.name,
           description: `Planilha compartilhada: ${selectedFile.name}`,
         }),
@@ -161,11 +165,14 @@ export default function ShareView({ shareHash }: Props) {
             />
             <button
               onClick={handleCreateShare}
-              disabled={loading}
+              disabled={loading || !user}
               className="mt-5 w-full rounded-3xl bg-indigo-700 px-5 py-4 text-sm font-black uppercase text-white shadow-lg transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? 'Gerando link...' : 'Gerar link de compartilhamento'}
+              {loading ? 'Gerando link...' : user ? 'Gerar link de compartilhamento' : 'Faça login para compartilhar'}
             </button>
+            {!user && (
+              <p className="mt-3 text-sm text-rose-600">Faça login para criar links de compartilhamento.</p>
+            )}
             {shareUrl && (
               <div className="mt-5 rounded-3xl bg-slate-50 border border-slate-200 p-4">
                 <p className="text-xs text-slate-500 uppercase tracking-[0.25em] mb-2">Link criado</p>

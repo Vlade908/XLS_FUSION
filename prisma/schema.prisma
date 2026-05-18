@@ -1,0 +1,67 @@
+// Prisma schema for XLS_FUSION
+// Suporta MongoDB Atlas (via MONGO_URI) ou SQLite local
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./prisma/dev.db"
+}
+
+// User model
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relacionamentos
+  uploads   Upload[]
+  shares    Share[]
+  forms     Form[]
+}
+
+// Upload model para rastrear uploads de arquivos
+model Upload {
+  id        String   @id @default(cuid())
+  filename  String
+  fileSize  Int
+  mimeType  String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Share model para compartilhamentos de spreadsheets
+model Share {
+  id        String   @id @default(cuid())
+  shareCode String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      String   // JSON serializado do spreadsheet
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  expiresAt DateTime?
+
+  @@index([userId])
+  @@index([shareCode])
+}
+
+// Form model para formulários personalizados
+model Form {
+  id        String   @id @default(cuid())
+  name      String
+  schema    String   // JSON schema do formulário
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}

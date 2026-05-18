@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../context/AuthContext.tsx';
 
 interface AccessRequest {
   _id: string;
@@ -12,8 +12,7 @@ interface AccessRequest {
 }
 
 export default function NotificationsView() {
-  const { user } = useUser();
-  const email = user?.primaryEmailAddress?.emailAddress || '';
+  const { user, authFetch } = useAuth();
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [statusMessage, setStatusMessage] = useState('');
 
@@ -25,7 +24,7 @@ export default function NotificationsView() {
   const fetchRequests = async () => {
     if (!user) return;
     try {
-      const response = await fetch(`/api/access-requests?ownerEmail=${encodeURIComponent(email)}`);
+      const response = await authFetch('/api/access-requests');
       const data = await response.json();
       setRequests(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -37,10 +36,10 @@ export default function NotificationsView() {
     if (!user) return;
     setStatusMessage('Processando...');
     try {
-      const response = await fetch(`/api/forms/${formId}/requests/${requestId}/${action}`, {
+      const response = await authFetch(`/api/forms/${formId}/requests/${requestId}/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ownerEmail: email }),
+        body: JSON.stringify({}),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Falha ao processar solicitação.');

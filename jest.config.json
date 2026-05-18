@@ -1,5 +1,8 @@
 {
   "preset": "ts-jest",
+  "transform": {
+    "^.+\\.(ts|tsx)$": ["ts-jest", { "tsconfig": "tsconfig.app.json", "diagnostics": false }]
+  },
   "testEnvironment": "jsdom",
   "setupFilesAfterEnv": ["<rootDir>/src/setupTests.ts"],
   "testMatch": [
@@ -15,7 +18,7 @@
   "coverageDirectory": "coverage",
   "coverageReporters": ["text", "lcov", "html"],
   "transform": {
-    "^.+\\.(ts|tsx)$": "ts-jest"
+    "^.+\\.(ts|tsx)$": ["ts-jest", { "tsconfig": "tsconfig.app.json", "diagnostics": false }]
   },
   "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"],
   "testPathIgnorePatterns": ["/node_modules/", "/dist/"],

@@ -3,7 +3,7 @@
 import dotenv from "dotenv";
 
 // Carrega .env primeiro, depois .env.local (que sobrescreve)
-dotenv.config();
+dotenv.config({ override: true });
 if (process.env.NODE_ENV !== 'production') {
   dotenv.config({ path: '.env.local', override: true });
 }
@@ -12,8 +12,6 @@ import express from "express";
 import path from "path";
 import helmet from "helmet";
 import cors from "cors";
-import { registerRoutes } from "./routes.js";
-import { connectDB } from "./db.ts";
 
 const app = express();
 
@@ -21,6 +19,9 @@ app.use(helmet());
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: false, limit: '5mb' }));
+
+const { connectDB } = await import('./db.ts');
+const { registerRoutes } = await import('./routes.js');
 
 await connectDB();
 

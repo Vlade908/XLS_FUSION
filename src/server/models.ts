@@ -2,6 +2,15 @@ import mongoose from 'mongoose';
 
 const { Schema, model } = mongoose;
 
+const UserSchema = new Schema(
+  {
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    passwordHash: { type: String, required: true },
+    name: { type: String, default: '' },
+  },
+  { timestamps: true }
+);
+
 const QuestionSchema = new Schema(
   {
     id: { type: String, required: true },
@@ -63,6 +72,7 @@ const SharedSpreadsheetSchema = new Schema(
   { timestamps: true }
 );
 
+export const UserModel = mongoose.models.User || model('User', UserSchema);
 export const FormModel = mongoose.models.Form || model('Form', FormSchema);
 export const AccessRequestModel = mongoose.models.AccessRequest || model('AccessRequest', AccessRequestSchema);
 export const ResponseModel = mongoose.models.Response || model('Response', ResponseSchema);

@@ -1,30 +1,38 @@
-import request from 'supertest';
-import express from 'express';
-import { registerRoutes } from '../../src/server/routes';
-import { connectDB } from '../../src/server/gridfs';
+/** @jest-environment node */
 
-// Mock do connectDB para testes
+const request = require('supertest');
+const express = require('express');
+const multer = require('multer');
+const { registerRoutes } = require('../../src/server/routes');
+const { createAuthToken } = require('../../src/server/auth');
+
+const uploadMiddleware = multer({ storage: multer.memoryStorage() }).single('file');
+
+// Mock do gridfs para testes
 jest.mock('../../src/server/gridfs', () => ({
   connectDB: jest.fn().mockResolvedValue(undefined),
   upload: {
     single: jest.fn(() => (req: any, res: any, next: any) => {
-      // Mock do multer middleware
-      req.file = {
-        id: 'mock-file-id',
-        filename: 'mock-filename.xlsx',
-        originalname: 'test.xlsx',
-        mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        size: 1024,
-      };
-      next();
+      uploadMiddleware(req, res, (err: any) => {
+        if (err) return next(err);
+        if (req.file) {
+          req.file.id = 'mock-file-id';
+          req.file.filename = req.file.filename || 'mock-filename.xlsx';
+          req.file.size = 1024;
+          req.file.mimetype = req.file.mimetype || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        }
+        next();
+      });
     }),
   },
 }));
 
 describe('API Routes Integration Tests', () => {
-  let app: express.Application;
+  let app: any;
+  let authToken: string;
 
   beforeAll(async () => {
+    authToken = createAuthToken({ userId: 'test-user', email: 'test@example.com' });
     app = express();
     app.use(express.json());
     registerRoutes(app);
@@ -38,6 +46,7 @@ describe('API Routes Integration Tests', () => {
     it('should upload an attachment successfully', async () => {
       const response = await request(app)
         .post('/api/upload-anexo')
+        .set('Authorization', `Bearer ${authToken}`)
         .field('responder', 'João Silva')
         .field('formName', 'Formulário A')
         .field('questionNumber', 'Q1')
@@ -67,6 +76,7 @@ describe('API Routes Integration Tests', () => {
 
       const response = await request(app)
         .post('/api/upload-anexo')
+        .set('Authorization', `Bearer ${authToken}`)
         .field('responder', 'João Silva');
 
       expect(response.status).toBe(400);
@@ -79,6 +89,7 @@ describe('API Routes Integration Tests', () => {
     it('should sanitize special characters in responder name', async () => {
       const response = await request(app)
         .post('/api/upload-anexo')
+        .set('Authorization', `Bearer ${authToken}`)
         .field('responder', 'João@#$% Silva!')
         .field('formName', 'Formulário A')
         .field('questionNumber', 'Q1')
@@ -91,6 +102,7 @@ describe('API Routes Integration Tests', () => {
     it('should handle missing optional fields', async () => {
       const response = await request(app)
         .post('/api/upload-anexo')
+        .set('Authorization', `Bearer ${authToken}`)
         .attach('file', Buffer.from('test'), 'test.xlsx');
 
       expect(response.status).toBe(201);
@@ -104,6 +116,7 @@ describe('API Routes Integration Tests', () => {
     it('should upload a spreadsheet successfully', async () => {
       const response = await request(app)
         .post('/api/upload-planilha')
+        .set('Authorization', `Bearer ${authToken}`)
         .attach('file', Buffer.from('spreadsheet content'), 'planilha.xlsx');
 
       expect(response.status).toBe(201);
@@ -125,7 +138,8 @@ describe('API Routes Integration Tests', () => {
       });
 
       const response = await request(app)
-        .post('/api/upload-planilha');
+        .post('/api/upload-planilha')
+        .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(400);
       expect(response.text).toBe('Arquivo não encontrado.');
@@ -141,6 +155,34 @@ describe('API Routes Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(response.text).toBe('OK');
+    });
+  });
+
+  describe('GET /api/me', () => {
+    it('should return current user when token is valid', async () => {
+      const response = await request(app)
+        .get('/api/me')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ user: { email: 'test@example.com' } });
+    });
+
+    it('should return 401 when token is invalid', async () => {
+      const response = await request(app)
+        .get('/api/me')
+        .set('Authorization', 'Bearer invalid.token');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    it('should return 401 when no token is provided', async () => {
+      const response = await request(app)
+        .get('/api/me');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
     });
   });
 });

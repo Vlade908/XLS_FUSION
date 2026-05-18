@@ -1,0 +1,10 @@
+const fs = require('fs');
+const path = require('path');
+const dotenv = require('dotenv');
+const envPath = path.resolve(process.cwd(), '.env');
+console.log('cwd', process.cwd());
+console.log('.env exists:', fs.existsSync(envPath));
+console.log('.env content:', fs.readFileSync(envPath, 'utf8'));
+console.log('before MONGO_URI', process.env.MONGO_URI);
+dotenv.config({ override: true });
+console.log('after dotenv MONGO_URI', process.env.MONGO_URI);

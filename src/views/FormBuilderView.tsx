@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../context/AuthContext.tsx';
 import { Plus, Edit3, Trash2, Eye, Save, FileText, Users, Settings, CheckCircle, XCircle, ArrowUp, ArrowDown, Copy, Zap } from 'lucide-react';
 
 type QuestionType = 'simnao' | 'alternativa' | 'respostaescrita' | 'data' | 'link' | 'check';
@@ -54,8 +54,8 @@ const quickTemplates = [
 ];
 
 export default function FormBuilderView() {
-  const { user } = useUser();
-  const email = user?.primaryEmailAddress?.emailAddress || '';
+  const { user, authFetch } = useAuth();
+  const email = user?.email || '';
   const [forms, setForms] = useState<ManualForm[]>([]);
   const [editingForm, setEditingForm] = useState<ManualForm | null>(null);
   const [newQuestion, setNewQuestion] = useState<Partial<ManualQuestion>>({ type: 'simnao', options: [] });
@@ -73,7 +73,7 @@ export default function FormBuilderView() {
   const loadForms = async () => {
     if (!user) return;
     try {
-      const response = await fetch(`/api/forms?email=${encodeURIComponent(email)}`);
+      const response = await authFetch('/api/forms');
       const data = await response.json();
       setForms(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -167,7 +167,7 @@ export default function FormBuilderView() {
     };
 
     try {
-      const response = await fetch('/api/forms', {
+      const response = await authFetch('/api/forms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -187,10 +187,10 @@ export default function FormBuilderView() {
   const requestAccess = async (formId: string) => {
     if (!user) return;
     try {
-      const response = await fetch(`/api/forms/${formId}/request-access`, {
+      const response = await authFetch(`/api/forms/${formId}/request-access`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requesterEmail: email, message: 'Preciso de acesso ao formulário.' }),
+        body: JSON.stringify({ message: 'Preciso de acesso ao formulário.' }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Falha ao solicitar acesso.');

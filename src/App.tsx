@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { SignedIn, SignedOut, SignIn } from '@clerk/clerk-react';
 import PreparationView from './views/PreparationView';
 import FiltrosView from './views/FiltrosView';
 import ResponderView from './views/ResponderView';
@@ -7,6 +6,8 @@ import ConsolidationView from './views/ConsolidationView';
 import FormBuilderView from './views/FormBuilderView';
 import NotificationsView from './views/NotificationsView';
 import ShareView from './views/ShareView';
+import AuthView from './components/AuthView';
+import { useAuth } from './context/AuthContext.tsx';
 
 const routeTabs = ['preparacao', 'builder', 'share', 'filtros', 'responder', 'notifications', 'consolidar'];
 
@@ -32,6 +33,7 @@ export default function App() {
   const [baseFile, setBaseFile] = useState<File | null>(null);
   const [employeeFiles, setEmployeeFiles] = useState<FileList | null>(null);
   const [workerColors, setWorkerColors] = useState<Record<string, string>>({});
+  const { user, logout, loading } = useAuth();
 
   // 2. Efeito para atualizar a URL sempre que a aba mudar
   useEffect(() => {
@@ -102,14 +104,31 @@ export default function App() {
     return <ShareView shareHash={shareHash} />;
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F0F2F5] text-slate-500">
+        Carregando sessão...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthView />;
+  }
+
   return (
-    <>
-      <SignedIn>
-      <div className="flex h-screen bg-[#F0F2F5] overflow-hidden font-sans">
+    <div className="flex h-screen bg-[#F0F2F5] overflow-hidden font-sans">
         <aside className={`transition-all duration-700 ease-in-out border-r border-slate-200 bg-white flex flex-col z-50 shadow-2xl ${isImmersive ? 'w-20' : 'w-72'}`}>
-          <div className="p-6 flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-black shadow-lg">F</div>
-            {!isImmersive && <h1 className="text-xl font-black text-slate-800 tracking-tighter">XLS <span className="text-indigo-600">FUSION</span></h1>}
+          <div className="p-6 flex items-center gap-3 justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-indigo-600 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-black shadow-lg">F</div>
+              {!isImmersive && <h1 className="text-xl font-black text-slate-800 tracking-tighter">XLS <span className="text-indigo-600">FUSION</span></h1>}
+            </div>
+            {!isImmersive && (
+              <button onClick={logout} className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-white hover:bg-slate-800">
+                Sair
+              </button>
+            )}
           </div>
 
           <nav className="flex-grow p-4 space-y-3">
@@ -168,12 +187,5 @@ export default function App() {
           </div>
         </main>
       </div>
-    </SignedIn>
-    <SignedOut>
-      <div className="min-h-screen flex items-center justify-center bg-[#F0F2F5]">
-        <SignIn />
-      </div>
-    </SignedOut>
-    </>
   );
 }
