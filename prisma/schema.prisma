@@ -1,67 +1,97 @@
 // Prisma schema for XLS_FUSION
-// Suporta MongoDB Atlas (via MONGO_URI) ou SQLite local
+// Suporta MongoDB Atlas ou MongoDB local
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./prisma/dev.db"
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
 }
 
 // User model
 model User {
-  id        String     @id @default(cuid())
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
   email     String     @unique
   password  String
+  name      String     @default("")
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
   // Relacionamentos
-  uploads   Upload[]
-  shares    Share[]
-  forms     Form[]
+  uploads        Upload[]
+  shares         Share[]
+  forms          Form[]
+  accessRequests AccessRequest[]
 }
 
 // Upload model para rastrear uploads de arquivos
 model Upload {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   filename  String
   fileSize  Int
   mimeType  String
-  userId    String
+  userId    String   @db.ObjectId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime   @updatedAt
 
   @@index([userId])
 }
 
 // Share model para compartilhamentos de spreadsheets
 model Share {
-  id        String   @id @default(cuid())
-  shareCode String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  data      String   // JSON serializado do spreadsheet
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  expiresAt DateTime?
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  hash         String   @unique
+  shareCode    String   @unique
+  fileId       String
+  originalname String
+  description  String   @default("")
+  ownerEmail   String
+  userId       String   @db.ObjectId
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  expiresAt    DateTime?
 
   @@index([userId])
-  @@index([shareCode])
 }
 
 // Form model para formulários personalizados
 model Form {
-  id        String   @id @default(cuid())
-  name      String
-  schema    String   // JSON schema do formulário
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  title          String   @default("")
+  description    String   @default("")
+  questions      String   @default("[]")  // JSON array
+  ownerEmail     String
+  ownerId        String   @db.ObjectId
+  owner          User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  allowedEmails  String   @default("[]")  // JSON array
+  allowedDomains String   @default("[]")  // JSON array
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  @@index([userId])
+  accessRequests AccessRequest[]
+  @@index([ownerId])
+  @@index([ownerEmail])
+}
+
+// AccessRequest model para pedidos de acesso a formulários
+model AccessRequest {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  formId         String   @db.ObjectId
+  form           Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  requesterEmail String
+  message        String   @default("")
+  status         String   @default("pending")  // pending, approved, denied
+  userId         String?  @db.ObjectId
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([formId])
+  @@index([requesterEmail])
+  @@index([status])
 }

@@ -21,7 +21,7 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: false, limit: '5mb' }));
 
 const { connectDB } = await import('./db.ts');
-const { registerRoutes } = await import('./routes.js');
+const { registerRoutes } = await import('./routes');
 
 await connectDB();
 

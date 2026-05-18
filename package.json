@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"vite\"",
-    "server": "tsx src/server/index.ts",
+    "server": "tsx watch src/server/index.ts",
     "start": "tsx src/server/index.ts",
     "build": "tsc && vite build",
     "lint": "eslint .",
@@ -20,9 +20,9 @@
     "test:watch": "jest --watch",
     "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "test:ci": "npm run test:all",
-    "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset --force"
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -6,6 +6,7 @@ import ConsolidationView from './views/ConsolidationView';
 import FormBuilderView from './views/FormBuilderView';
 import NotificationsView from './views/NotificationsView';
 import ShareView from './views/ShareView';
+import WebResponderView from './views/WebResponderView';
 import AuthView from './components/AuthView';
 import { useAuth } from './context/AuthContext.tsx';
 
@@ -17,6 +18,10 @@ export default function App() {
     if (pathname.startsWith('/share/')) {
       const hash = pathname.split('/share/')[1] || '';
       return { tab: 'share' as const, shareHash: hash };
+    }
+    if (pathname.startsWith('/share-form/')) {
+      const hash = pathname.split('/share-form/')[1] || '';
+      return { tab: 'share-form' as const, shareHash: hash };
     }
     const hash = window.location.hash.replace('#', '');
     return {
@@ -37,9 +42,9 @@ export default function App() {
 
   // 2. Efeito para atualizar a URL sempre que a aba mudar
   useEffect(() => {
-    if (activeTab === 'share') {
+    if (activeTab === 'share' || activeTab === 'share-form') {
       if (!shareHash) {
-        window.history.replaceState({}, '', '/share');
+        window.history.replaceState({}, '', `/${activeTab}`);
       }
     } else {
       window.location.hash = activeTab;
@@ -53,6 +58,12 @@ export default function App() {
       if (pathname.startsWith('/share/')) {
         const hash = pathname.split('/share/')[1] || '';
         setActiveTab('share');
+        setShareHash(hash);
+        return;
+      }
+      if (pathname.startsWith('/share-form/')) {
+        const hash = pathname.split('/share-form/')[1] || '';
+        setActiveTab('share-form' as any);
         setShareHash(hash);
         return;
       }
@@ -104,6 +115,10 @@ export default function App() {
     return <ShareView shareHash={shareHash} />;
   }
 
+  if (activeTab === 'share-form' && shareHash) {
+    return <WebResponderView formId={shareHash} />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F0F2F5] text-slate-500">
@@ -135,7 +150,6 @@ export default function App() {
             {[
               { id: 'preparacao', icon: '🎨', label: 'Preparação' },
               { id: 'builder', icon: '🧩', label: 'Formulários' },
-              { id: 'share', icon: '🔗', label: 'Compartilhar' },
               { id: 'filtros', icon: '⚡', label: 'Filtros' },
               { id: 'responder', icon: '📝', label: 'Responder' },
               { id: 'notifications', icon: '🔔', label: 'Notificações' },
@@ -144,12 +158,8 @@ export default function App() {
               <button
                 key={tab.id}
                 onClick={() => {
-                  if (tab.id === 'share') {
-                    window.history.pushState({}, '', '/share');
-                  } else {
-                    window.location.hash = tab.id;
-                  }
-                  setActiveTab(tab.id);
+                  window.location.hash = tab.id;
+                  setActiveTab(tab.id as any);
                 }}
                 className={`w-full flex items-center transition-all duration-500 rounded-2xl ${
                   activeTab === tab.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50'

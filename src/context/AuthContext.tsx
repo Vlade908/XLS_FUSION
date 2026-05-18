@@ -107,11 +107,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify({ email, password }),
     });
 
-    const result = await response.json();
     if (!response.ok) {
-      throw new Error(result?.error || 'Falha ao autenticar.');
+      let errorMessage = 'Falha ao autenticar.';
+      try {
+    const result = await response.json();
+        errorMessage = result?.error || errorMessage;
+      } catch {
+        errorMessage = `Erro do servidor (${response.status}): ${response.statusText}`;
+    }
+      throw new Error(errorMessage);
     }
 
+    let result;
+    try {
+      result = await response.json();
+    } catch {
+      throw new Error('Resposta inválida do servidor.');
+    }
     if (!result?.token) {
       throw new Error('Token não retornado pelo servidor.');
     }
@@ -126,15 +138,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify({ email, password }),
     });
 
-    const result = await response.json();
     if (!response.ok) {
-      throw new Error(result?.error || 'Falha ao criar conta.');
+      let errorMessage = 'Falha ao criar conta.';
+      try {
+        const result = await response.json();
+        errorMessage = result?.error || errorMessage;
+      } catch {
+        errorMessage = `Erro do servidor (${response.status}): ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    let result;
+    try {
+      result = await response.json();
+    } catch {
+      throw new Error('Resposta inválida do servidor.');
     }
 
     if (!result?.token) {
       throw new Error('Token não retornado pelo servidor.');
     }
-
     syncToken(result.token);
   };
 
@@ -169,3 +193,4 @@ export function useAuth() {
   }
   return context;
 }
+

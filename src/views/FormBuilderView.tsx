@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
-import { Plus, Edit3, Trash2, Eye, Save, FileText, Users, Settings, CheckCircle, XCircle, ArrowUp, ArrowDown, Copy, Zap } from 'lucide-react';
+import { Plus, Edit3, Trash2, Eye, Save, FileText, Users, Settings, CheckCircle, XCircle, ArrowUp, ArrowDown, Copy, Zap, Link } from 'lucide-react';
 
 type QuestionType = 'simnao' | 'alternativa' | 'respostaescrita' | 'data' | 'link' | 'check';
 
@@ -64,6 +64,7 @@ export default function FormBuilderView() {
   const [statusMessage, setStatusMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'forms' | 'create'>('forms');
   const [showPreview, setShowPreview] = useState(false);
+  const [previewAnswers, setPreviewAnswers] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -118,12 +119,12 @@ export default function FormBuilderView() {
       label: questionData.label?.trim() || '',
       type: questionData.type as QuestionType,
       options: questionData.options ? questionData.options.filter(Boolean) : [],
-      parentId: null,
-      showWhenValue: '',
+      parentId: questionData.parentId || null,
+      showWhenValue: questionData.showWhenValue || '',
     };
 
     setEditingForm({ ...editingForm, questions: [...editingForm.questions, nextQuestion] });
-    setNewQuestion({ type: 'simnao', options: [] });
+    setNewQuestion({ type: 'simnao', options: [], parentId: '', showWhenValue: '' });
   };
 
   const removeQuestion = (id: string) => {
@@ -216,7 +217,18 @@ export default function FormBuilderView() {
             <p className="text-slate-600">{editingForm.description || 'Descrição do formulário'}</p>
           </div>
 
-          {editingForm.questions.map((question, index) => (
+          {editingForm.questions.map((question, index) => {
+            if (question.parentId) {
+              const parentVal = previewAnswers[question.parentId];
+              if (
+                !parentVal ||
+                (Array.isArray(parentVal) && !parentVal.includes(question.showWhenValue)) ||
+                (!Array.isArray(parentVal) && String(parentVal) !== String(question.showWhenValue))
+              ) {
+                return null;
+              }
+            }
+            return (
             <div key={question.id} className="bg-slate-50 rounded-xl p-4">
               <div className="flex items-start gap-3">
                 <span className="text-lg">{questionTypeIcons[question.type]}</span>
@@ -226,11 +238,11 @@ export default function FormBuilderView() {
                   {question.type === 'simnao' && (
                     <div className="flex gap-4">
                       <label className="flex items-center gap-2">
-                        <input type="radio" name={`q${index}`} className="text-indigo-600" />
+                        <input type="radio" name={`q${index}`} value="Sim" onChange={(e) => setPreviewAnswers({ ...previewAnswers, [question.id]: e.target.value })} className="text-indigo-600" />
                         <span className="text-sm">Sim</span>
                       </label>
                       <label className="flex items-center gap-2">
-                        <input type="radio" name={`q${index}`} className="text-indigo-600" />
+                        <input type="radio" name={`q${index}`} value="Não" onChange={(e) => setPreviewAnswers({ ...previewAnswers, [question.id]: e.target.value })} className="text-indigo-600" />
                         <span className="text-sm">Não</span>
                       </label>
                     </div>
@@ -240,7 +252,7 @@ export default function FormBuilderView() {
                     <div className="space-y-2">
                       {question.options.map((option, optIndex) => (
                         <label key={optIndex} className="flex items-center gap-2">
-                          <input type="radio" name={`q${index}`} className="text-indigo-600" />
+                          <input type="radio" name={`q${index}`} value={option} onChange={(e) => setPreviewAnswers({ ...previewAnswers, [question.id]: e.target.value })} className="text-indigo-600" />
                           <span className="text-sm">{option}</span>
                         </label>
                       ))}
@@ -251,7 +263,11 @@ export default function FormBuilderView() {
                     <div className="space-y-2">
                       {question.options.map((option, optIndex) => (
                         <label key={optIndex} className="flex items-center gap-2">
-                          <input type="checkbox" className="text-indigo-600" />
+                          <input type="checkbox" value={option} onChange={(e) => {
+                            const current = previewAnswers[question.id] || [];
+                            const next = e.target.checked ? [...current, option] : current.filter((o: string) => o !== option);
+                            setPreviewAnswers({ ...previewAnswers, [question.id]: next });
+                          }} className="text-indigo-600" />
                           <span className="text-sm">{option}</span>
                         </label>
                       ))}
@@ -259,20 +275,21 @@ export default function FormBuilderView() {
                   )}
 
                   {question.type === 'respostaescrita' && (
-                    <textarea className="w-full rounded-lg border border-slate-200 p-3 text-sm" placeholder="Digite sua resposta..." rows={3} />
+                    <textarea value={previewAnswers[question.id] || ''} onChange={(e) => setPreviewAnswers({ ...previewAnswers, [question.id]: e.target.value })} className="w-full rounded-lg border border-slate-200 p-3 text-sm" placeholder="Digite sua resposta..." rows={3} />
                   )}
 
                   {question.type === 'data' && (
-                    <input type="date" className="rounded-lg border border-slate-200 p-3 text-sm" />
+                    <input type="date" value={previewAnswers[question.id] || ''} onChange={(e) => setPreviewAnswers({ ...previewAnswers, [question.id]: e.target.value })} className="rounded-lg border border-slate-200 p-3 text-sm" />
                   )}
 
                   {question.type === 'link' && (
-                    <input type="url" className="w-full rounded-lg border border-slate-200 p-3 text-sm" placeholder="https://..." />
+                    <input type="url" value={previewAnswers[question.id] || ''} onChange={(e) => setPreviewAnswers({ ...previewAnswers, [question.id]: e.target.value })} className="w-full rounded-lg border border-slate-200 p-3 text-sm" placeholder="https://..." />
                   )}
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -376,17 +393,30 @@ export default function FormBuilderView() {
 
                   <p className="text-sm text-slate-500 mb-4 line-clamp-2">{form.description || 'Sem descrição'}</p>
 
-                  <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-400">{form.questions.length} perguntas</span>
                     <div className="flex gap-2">
                       {form.isOwner && (
-                        <button
-                          onClick={() => selectForm(form)}
-                          className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 transition-colors"
-                        >
-                          <Edit3 className="w-3 h-3" />
-                          Editar
-                        </button>
+                        <>
+                          <button
+                            onClick={() => {
+                              const url = `${window.location.origin}/share-form/${form._id}`;
+                              navigator.clipboard.writeText(url);
+                              alert('Link de compartilhamento copiado!');
+                            }}
+                            className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-bold hover:bg-indigo-200 transition-colors"
+                          >
+                            <Link className="w-3 h-3" />
+                            Compartilhar
+                          </button>
+                          <button
+                            onClick={() => selectForm(form)}
+                            className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 transition-colors"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            Editar
+                          </button>
+                        </>
                       )}
                       {!form.isOwner && form.hasAccess && (
                         <button
@@ -523,14 +553,97 @@ export default function FormBuilderView() {
                       ))}
                     </select>
                     {(newQuestion.type === 'alternativa' || newQuestion.type === 'check') && (
-                      <div className="md:col-span-2">
-                        <input
-                          value={newQuestion.options?.join(', ') || ''}
-                          onChange={(e) => setNewQuestion({ ...newQuestion, options: e.target.value.split(',').map((item) => item.trim()).filter(Boolean) })}
-                          placeholder="Opção 1, Opção 2, Opção 3..."
-                          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                        />
+                      <div className="md:col-span-2 space-y-2">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Opções de Resposta:</label>
+                        {(newQuestion.options?.length ? newQuestion.options : ['']).map((opt, idx, arr) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <input
+                              value={opt}
+                              onChange={(e) => {
+                                const nextOpts = [...(newQuestion.options?.length ? newQuestion.options : [''])];
+                                nextOpts[idx] = e.target.value;
+                                setNewQuestion({ ...newQuestion, options: nextOpts });
+                              }}
+                              placeholder={`Opção ${idx + 1}...`}
+                              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                            />
+                            {arr.length > 1 && (
+                              <button
+                                onClick={() => {
+                                  const nextOpts = [...(newQuestion.options?.length ? newQuestion.options : [''])];
+                                  nextOpts.splice(idx, 1);
+                                  setNewQuestion({ ...newQuestion, options: nextOpts });
+                                }}
+                                className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                title="Remover Opção"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                            {idx === arr.length - 1 && (
+                              <button
+                                onClick={() => {
+                                  const nextOpts = [...(newQuestion.options?.length ? newQuestion.options : [''])];
+                                  nextOpts.push('');
+                                  setNewQuestion({ ...newQuestion, options: nextOpts });
+                                }}
+                                className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
+                                title="Nova Opção"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
                       </div>
+                    )}
+
+                    {/* Conditional Logic UI */}
+                    {editingForm.questions.length > 0 && (
+                      <>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Depende da Pergunta:</label>
+                          <select
+                            value={newQuestion.parentId || ''}
+                            onChange={(e) => setNewQuestion({ ...newQuestion, parentId: e.target.value, showWhenValue: '' })}
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                          >
+                            <option value="">Nenhuma dependência (Sempre visível)</option>
+                            {editingForm.questions.map((q) => (
+                              <option key={q.id} value={q.id}>{q.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {newQuestion.parentId && (
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mostrar quando a resposta for:</label>
+                            {(() => {
+                              const parentQ = editingForm.questions.find((q) => q.id === newQuestion.parentId);
+                              if (parentQ && (parentQ.type === 'simnao' || parentQ.type === 'alternativa')) {
+                                const opts = parentQ.type === 'simnao' ? ['Sim', 'Não'] : parentQ.options;
+                                return (
+                                  <select
+                                    value={newQuestion.showWhenValue || ''}
+                                    onChange={(e) => setNewQuestion({ ...newQuestion, showWhenValue: e.target.value })}
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                  >
+                                    <option value="">Selecione o valor...</option>
+                                    {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+                                  </select>
+                                );
+                              }
+                              return (
+                                <input
+                                  value={newQuestion.showWhenValue || ''}
+                                  onChange={(e) => setNewQuestion({ ...newQuestion, showWhenValue: e.target.value })}
+                                  placeholder="Digite a resposta esperada..."
+                                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                />
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                   <button
