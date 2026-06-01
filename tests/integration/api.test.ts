@@ -185,4 +185,33 @@ describe('API Routes Integration Tests', () => {
       expect(response.body).toHaveProperty('error');
     });
   });
+
+  describe('POST /api/refresh', () => {
+    it('should return a new token when current token is valid', async () => {
+      const response = await request(app)
+        .post('/api/refresh')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('token');
+      expect(response.body.user).toEqual({ email: 'test@example.com' });
+    });
+
+    it('should return 401 when token is invalid', async () => {
+      const response = await request(app)
+        .post('/api/refresh')
+        .set('Authorization', 'Bearer invalid.token');
+
+      expect(response.status).toBe(401);
+    });
+
+    it('should return 401 when no token is provided', async () => {
+      const response = await request(app)
+        .post('/api/refresh');
+
+      expect(response.status).toBe(401);
+    });
+  });
 });
+
+export {};

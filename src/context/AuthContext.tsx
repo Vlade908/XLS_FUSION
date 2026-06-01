@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface AuthUser {
   email: string;
@@ -49,6 +49,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const [loading, setLoading] = useState(true);
 
+  const lastActivityRef = useRef<number>(Date.now());
+
+  const syncToken = useCallback((newToken: string | null) => {
+    setToken(newToken);
+    const parsed = newToken ? parseToken(newToken) : null;
+    setUser(parsed);
+    if (typeof window !== 'undefined') {
+      if (newToken) {
+        localStorage.setItem(STORAGE_KEY, newToken);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    syncToken(null);
+  }, [syncToken]);
+
   useEffect(() => {
     const initializeAuth = async () => {
       if (typeof window === 'undefined') {
@@ -85,20 +104,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initializeAuth();
-  }, []);
+  }, [syncToken]);
 
-  const syncToken = (newToken: string | null) => {
-    setToken(newToken);
-    const parsed = newToken ? parseToken(newToken) : null;
-    setUser(parsed);
-    if (typeof window !== 'undefined') {
-      if (newToken) {
-        localStorage.setItem(STORAGE_KEY, newToken);
-      } else {
-        localStorage.removeItem(STORAGE_KEY);
+  useEffect(() => {
+    if (!token) return;
+
+    const updateActivity = () => {
+      lastActivityRef.current = Date.now();
+    };
+
+    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('mousedown', updateActivity);
+    window.addEventListener('keydown', updateActivity);
+    window.addEventListener('scroll', updateActivity);
+    window.addEventListener('click', updateActivity);
+
+    return () => {
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('mousedown', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('scroll', updateActivity);
+      window.removeEventListener('click', updateActivity);
+    };
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const interval = setInterval(async () => {
+      const now = Date.now();
+      const idleTime = now - lastActivityRef.current;
+
+      const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutos
+      if (idleTime > INACTIVITY_LIMIT) {
+        console.warn('Usuário inativo por mais de 30 minutos. Desconectando...');
+        logout();
+        return;
       }
-    }
-  };
+
+      try {
+        const payload = parseToken(token);
+        if (payload) {
+          const jwtPayload = JSON.parse(atob(token.split('.')[1]));
+          const expirationTimeMs = jwtPayload.exp * 1000;
+          const timeLeft = expirationTimeMs - now;
+
+          const REFRESH_THRESHOLD = 15 * 60 * 1000; // 15 minutos restantes
+          const ACTIVE_RECENTLY = idleTime < 1 * 60 * 1000; // ativo no último 1 minuto
+
+          if (timeLeft < REFRESH_THRESHOLD && ACTIVE_RECENTLY) {
+            console.log('Renovando token por atividade do usuário...');
+            const response = await fetch('/api/refresh', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (response.ok) {
+              const data = await response.json();
+              if (data.token) {
+                syncToken(data.token);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Falha ao validar ou renovar token:', err);
+      }
+    }, 60 * 1000); // Roda a cada 60 segundos
+
+    return () => clearInterval(interval);
+  }, [token, logout, syncToken]);
 
   const login = async (email: string, password: string) => {
     const response = await fetch('/api/login', {
@@ -110,11 +184,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!response.ok) {
       let errorMessage = 'Falha ao autenticar.';
       try {
-    const result = await response.json();
+        const result = await response.json();
         errorMessage = result?.error || errorMessage;
       } catch {
         errorMessage = `Erro do servidor (${response.status}): ${response.statusText}`;
-    }
+      }
       throw new Error(errorMessage);
     }
 
@@ -162,9 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     syncToken(result.token);
   };
 
-  const logout = () => {
-    syncToken(null);
-  };
+
 
   const authFetch = async (input: RequestInfo, init?: RequestInit) => {
     const headers = new Headers(init?.headers || {});

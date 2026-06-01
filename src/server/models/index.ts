@@ -57,6 +57,16 @@ const ResponseSchema = new Schema(
     responderEmail: { type: String, required: true },
     data: { type: Schema.Types.Mixed, default: {} },
     submitted: { type: Boolean, default: false },
+    history: {
+      type: [
+        {
+          updatedAt: { type: Date, default: Date.now },
+          changedBy: { type: String, required: true },
+          data: { type: Schema.Types.Mixed, default: {} }
+        }
+      ],
+      default: []
+    }
   },
   { timestamps: true }
 );

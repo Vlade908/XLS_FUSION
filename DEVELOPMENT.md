@@ -64,10 +64,7 @@ src/
 ├── views/                      # Páginas completas
 │   ├── FormBuilderView.tsx     # Construtor de formulários (principal)
 │   ├── WebResponderView.tsx    # Tela pública de resposta (sem login)
-│   ├── ResponderView.tsx       # Tela interna de resposta (com login)
-│   ├── PreparationView.tsx     # Preparação de planilhas Excel
-│   ├── FiltrosView.tsx         # Filtros de auditoria
-│   ├── ConsolidationView.tsx   # Consolidação de respostas
+│   ├── ResponderView.tsx       # Central de Respostas (respostas online/edição e planilha offline)
 │   ├── NotificationsView.tsx   # Notificações e pedidos de acesso
 │   └── ShareView.tsx           # Compartilhamento de planilhas (legado)
 │
@@ -108,10 +105,9 @@ O frontend usa **hash-based routing** sem React Router:
 
 ```typescript
 // App.tsx detecta:
-// /#preparacao  → PreparationView
-// /#filtros     → FiltrosView
-// /#formularios → FormBuilderView
-// /#notificacoes → NotificationsView
+// /#builder       → FormBuilderView
+// /#responder     → ResponderView
+// /#notifications → NotificationsView
 // /share-form/:id → WebResponderView (URL limpa, sem hash)
 ```
 

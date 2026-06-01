@@ -1,5 +1,62 @@
 import { Request, Response } from 'express';
-import { FormModel, AccessRequestModel } from '../models/index';
+import { FormModel, AccessRequestModel, ResponseModel } from '../models/index';
+
+const allowedQuestionTypes = ['simnao', 'alternativa', 'respostaescrita', 'data', 'link', 'check'] as const;
+type QuestionType = (typeof allowedQuestionTypes)[number];
+
+const isValidEmail = (value: any) =>
+  typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
+const isValidDomain = (value: any) =>
+  typeof value === 'string' && /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value.trim());
+
+const cleanEmail = (value: any) => String(value || '').trim().toLowerCase();
+const cleanDomain = (value: any) => String(value || '').trim().toLowerCase();
+
+const normalizeEmails = (list: any) =>
+  Array.isArray(list)
+    ? Array.from(
+        new Set(
+          list.map((item) => cleanEmail(item)).filter((item) => item && isValidEmail(item))
+        )
+      )
+    : [];
+
+const normalizeDomains = (list: any) =>
+  Array.isArray(list)
+    ? Array.from(
+        new Set(
+          list.map((item) => cleanDomain(item)).filter((item) => item && isValidDomain(item))
+        )
+      )
+    : [];
+
+const normalizeQuestions = (questions: any) => {
+  if (!Array.isArray(questions)) return [];
+
+  return questions
+    .map((question) => {
+      const id = String(question?.id || '').trim();
+      const label = String(question?.label || '').trim();
+      const type = String(question?.type || '') as QuestionType;
+      const options = Array.isArray(question?.options)
+        ? question.options.map((option: any) => String(option || '').trim()).filter(Boolean)
+        : [];
+      const parentId = question?.parentId ? String(question.parentId).trim() : null;
+      const showWhenValue = String(question?.showWhenValue || '').trim();
+
+      if (!id || !label || !allowedQuestionTypes.includes(type)) {
+        return null;
+      }
+
+      if ((type === 'alternativa' || type === 'check') && !options.length) {
+        return null;
+      }
+
+      return { id, label, type, options, parentId, showWhenValue };
+    })
+    .filter(Boolean) as any[];
+};
 
 export const listForms = async (req: Request, res: Response) => {
   try {
@@ -44,44 +101,47 @@ export const saveForm = async (req: Request, res: Response) => {
   try {
     const { _id, name, title, description, questions, allowedEmails, allowedDomains } = req.body;
     const ownerEmail = (req as any).user?.email || '';
+    const normalizedOwnerEmail = cleanEmail(ownerEmail);
+    const nameValue = String(name || '').trim();
+    const titleValue = String(title || '').trim();
+    const descriptionValue = String(description || '').trim();
+    const normalizedQuestions = normalizeQuestions(questions);
+    const normalizedAllowedEmails = normalizeEmails(allowedEmails);
+    const normalizedAllowedDomains = normalizeDomains(allowedDomains);
 
-    if (!name || !ownerEmail) {
-      return res.status(400).json({ error: 'Nome e e-mail do proprietário são obrigatórios.' });
+    if (!nameValue) {
+      return res.status(400).json({ error: 'Nome do formulário é obrigatório.' });
+    }
+
+    if (!normalizedOwnerEmail || !isValidEmail(normalizedOwnerEmail)) {
+      return res.status(400).json({ error: 'E-mail do proprietário inválido.' });
     }
 
     if (_id) {
       const existing = await FormModel.findById(_id);
       if (!existing) return res.status(404).json({ error: 'Formulário não encontrado.' });
-      if (existing.ownerEmail !== ownerEmail)
+      if (existing.ownerEmail !== normalizedOwnerEmail)
         return res.status(403).json({ error: 'Apenas o dono pode editar o formulário.' });
 
-      existing.name = String(name).trim();
-      existing.title = String(title || '');
-      existing.description = String(description || '');
-      existing.questions = Array.isArray(questions) ? questions : [];
-      existing.allowedEmails = Array.isArray(allowedEmails)
-        ? allowedEmails.map((e: string) => String(e).trim().toLowerCase())
-        : [];
-      existing.allowedDomains = Array.isArray(allowedDomains)
-        ? allowedDomains.map((d: string) => String(d).trim().toLowerCase())
-        : [];
+      existing.name = nameValue;
+      existing.title = titleValue;
+      existing.description = descriptionValue;
+      existing.questions = normalizedQuestions;
+      existing.allowedEmails = normalizedAllowedEmails;
+      existing.allowedDomains = normalizedAllowedDomains;
       await existing.save();
 
       return res.status(200).json({ message: 'Formulário atualizado.', form: existing });
     }
 
     const form = await FormModel.create({
-      name: String(name).trim(),
-      title: String(title || ''),
-      description: String(description || ''),
-      ownerEmail: ownerEmail.toLowerCase(),
-      questions: Array.isArray(questions) ? questions : [],
-      allowedEmails: Array.isArray(allowedEmails)
-        ? allowedEmails.map((e: string) => String(e).trim().toLowerCase())
-        : [],
-      allowedDomains: Array.isArray(allowedDomains)
-        ? allowedDomains.map((d: string) => String(d).trim().toLowerCase())
-        : [],
+      name: nameValue,
+      title: titleValue,
+      description: descriptionValue,
+      ownerEmail: normalizedOwnerEmail,
+      questions: normalizedQuestions,
+      allowedEmails: normalizedAllowedEmails,
+      allowedDomains: normalizedAllowedDomains,
     });
 
     res.status(201).json({ message: 'Formulário criado.', form });
@@ -198,6 +258,177 @@ export const handleAccessRequest = async (req: Request, res: Response) => {
     res.status(200).json({ message: `Pedido ${action === 'approve' ? 'aprovado' : 'negado'} com sucesso.` });
   } catch (err: any) {
     console.error('❌ [ACCESS REQUEST ACTION ERROR]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getFormById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const email = (req as any).user?.email;
+    if (!email) {
+      return res.status(401).json({ error: 'Não autenticado.' });
+    }
+
+    const form = await FormModel.findById(id).lean();
+    if (!form) {
+      return res.status(404).json({ error: 'Formulário não encontrado.' });
+    }
+
+    const domain = email.split('@')[1] || '';
+    const isOwner = form.ownerEmail === email;
+    const isAllowedEmail = form.allowedEmails && form.allowedEmails.includes(email);
+    const isAllowedDomain = form.allowedDomains && form.allowedDomains.includes(domain);
+    const isPublic = (!form.allowedEmails || form.allowedEmails.length === 0) && (!form.allowedDomains || form.allowedDomains.length === 0);
+
+    if (!isOwner && !isAllowedEmail && !isAllowedDomain && !isPublic) {
+      return res.status(403).json({ error: 'Você não tem permissão para acessar este formulário.' });
+    }
+
+    res.status(200).json({
+      ...form,
+      isOwner
+    });
+  } catch (err: any) {
+    console.error('❌ [GET FORM BY ID ERROR]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const listUserResponses = async (req: Request, res: Response) => {
+  try {
+    const email = (req as any).user?.email;
+    if (!email) {
+      return res.status(401).json({ error: 'Usuário não autenticado.' });
+    }
+
+    const responses = await ResponseModel.find({ responderEmail: email }).lean();
+    const formIds = responses.map(r => r.formId);
+    const forms = await FormModel.find({ _id: { $in: formIds } }).lean();
+
+    const result = responses.map(response => {
+      const form = forms.find(f => f._id.toString() === response.formId.toString());
+      return {
+        _id: response._id,
+        formId: response.formId,
+        submitted: response.submitted,
+        updatedAt: (response as any).updatedAt,
+        createdAt: (response as any).createdAt,
+        data: response.data,
+        form: form ? {
+          name: form.name,
+          title: form.title,
+          description: form.description,
+          questions: form.questions
+        } : null
+      };
+    }).filter(r => r.form !== null);
+
+    res.status(200).json(result);
+  } catch (err: any) {
+    console.error('❌ [MY RESPONSES LIST ERROR]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getUserResponse = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const email = (req as any).user?.email;
+    if (!email) {
+      return res.status(401).json({ error: 'Não autenticado.' });
+    }
+
+    const response = await ResponseModel.findOne({ formId: id, responderEmail: email }).lean();
+    res.status(200).json(response || { data: {} });
+  } catch (err: any) {
+    console.error('❌ [GET USER RESPONSE ERROR]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const saveUserResponse = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const email = (req as any).user?.email;
+    const { data } = req.body;
+
+    if (!email) {
+      return res.status(401).json({ error: 'Não autenticado.' });
+    }
+
+    const form = await FormModel.findById(id);
+    if (!form) {
+      return res.status(404).json({ error: 'Formulário não encontrado.' });
+    }
+
+    // Check permissions
+    const domain = email.split('@')[1] || '';
+    const isOwner = form.ownerEmail === email;
+    const isAllowedEmail = form.allowedEmails && form.allowedEmails.includes(email);
+    const isAllowedDomain = form.allowedDomains && form.allowedDomains.includes(domain);
+    const isPublic = (!form.allowedEmails || form.allowedEmails.length === 0) && (!form.allowedDomains || form.allowedDomains.length === 0);
+
+    if (!isOwner && !isAllowedEmail && !isAllowedDomain && !isPublic) {
+      return res.status(403).json({ error: 'Você não tem permissão para responder este formulário.' });
+    }
+
+    let existing = await ResponseModel.findOne({ formId: id, responderEmail: email });
+    if (!existing) {
+      existing = await ResponseModel.create({
+        formId: id,
+        responderEmail: email,
+        data: data || {},
+        submitted: true,
+        history: []
+      });
+    } else {
+      // Compare data to see if there is any change
+      const currentDataStr = JSON.stringify(existing.data || {});
+      const newDataStr = JSON.stringify(data || {});
+      
+      if (currentDataStr !== newDataStr) {
+        // Add snapshot of current answers to history
+        existing.history.push({
+          updatedAt: new Date(),
+          changedBy: email,
+          data: existing.data || {}
+        });
+        existing.data = data || {};
+      }
+      existing.submitted = true;
+      await existing.save();
+    }
+
+    res.status(200).json({ message: 'Resposta salva com sucesso!', response: existing });
+  } catch (err: any) {
+    console.error('❌ [SAVE USER RESPONSE ERROR]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getFormResponsesDashboard = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const email = (req as any).user?.email;
+
+    if (!email) {
+      return res.status(401).json({ error: 'Não autenticado.' });
+    }
+
+    const form = await FormModel.findById(id);
+    if (!form) {
+      return res.status(404).json({ error: 'Formulário não encontrado.' });
+    }
+
+    if (form.ownerEmail !== email) {
+      return res.status(403).json({ error: 'Apenas o criador do formulário pode ver as respostas.' });
+    }
+
+    const responses = await ResponseModel.find({ formId: id }).sort({ updatedAt: -1 }).lean();
+    res.status(200).json(responses);
+  } catch (err: any) {
+    console.error('❌ [GET RESPONSES DASHBOARD ERROR]:', err.message);
     res.status(500).json({ error: err.message });
   }
 };

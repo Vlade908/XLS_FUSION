@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'xls_fusion_secret';
-const JWT_EXPIRES_IN = '7d';
+const JWT_EXPIRES_IN = '1m';
 
 export interface AuthPayload {
   userId: string;

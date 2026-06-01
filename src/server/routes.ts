@@ -15,13 +15,18 @@ import { upload } from './gridfs';
 import { requireAuth } from './middleware/authMiddleware';
 
 // Controllers
-import { signup, login, me } from './controllers/authController';
+import { signup, login, me, refresh } from './controllers/authController';
 import {
   listForms,
   saveForm,
   requestAccess,
   listAccessRequests,
   handleAccessRequest,
+  getFormById,
+  listUserResponses,
+  getUserResponse,
+  saveUserResponse,
+  getFormResponsesDashboard,
 } from './controllers/formController';
 import { getPublicForm, submitPublicResponse } from './controllers/publicFormController';
 import {
@@ -44,12 +49,18 @@ export function registerRoutes(app: Express) {
   app.post('/api/signup', signup);
   app.post('/api/login', login);
   app.get('/api/me', requireAuth, me);
+  app.post('/api/refresh', requireAuth, refresh);
 
   // ─────────────────────────────────────────────
   // 3. Formulários (Privados — requer login)
   // ─────────────────────────────────────────────
   app.get('/api/forms', requireAuth, listForms);
+  app.get('/api/my-responses', requireAuth, listUserResponses);
   app.post('/api/forms', requireAuth, saveForm);
+  app.get('/api/forms/:id', requireAuth, getFormById);
+  app.get('/api/forms/:id/response', requireAuth, getUserResponse);
+  app.post('/api/forms/:id/response', requireAuth, saveUserResponse);
+  app.get('/api/forms/:id/responses-dashboard', requireAuth, getFormResponsesDashboard);
 
   // ─────────────────────────────────────────────
   // 4. Formulários Públicos (sem autenticação)

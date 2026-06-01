@@ -4,6 +4,14 @@ import { Plus, Edit3, Trash2, Eye, Save, FileText, Users, Settings, CheckCircle,
 
 type QuestionType = 'simnao' | 'alternativa' | 'respostaescrita' | 'data' | 'link' | 'check';
 
+type QuestionDraft = {
+  label?: string;
+  type: QuestionType;
+  options: string[];
+  parentId?: string | null;
+  showWhenValue?: string;
+};
+
 interface ManualQuestion {
   id: string;
   label: string;
@@ -58,7 +66,7 @@ export default function FormBuilderView() {
   const email = user?.email || '';
   const [forms, setForms] = useState<ManualForm[]>([]);
   const [editingForm, setEditingForm] = useState<ManualForm | null>(null);
-  const [newQuestion, setNewQuestion] = useState<Partial<ManualQuestion>>({ type: 'simnao', options: [] });
+  const [newQuestion, setNewQuestion] = useState<QuestionDraft>({ type: 'simnao', options: [] });
   const [emailInput, setEmailInput] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
@@ -111,7 +119,7 @@ export default function FormBuilderView() {
   const addQuestion = (template?: typeof quickTemplates[0]) => {
     if (!editingForm) return;
 
-    const questionData = template || newQuestion;
+    const questionData = (template || newQuestion) as QuestionDraft;
     if (!questionData.label && !template) return;
 
     const nextQuestion: ManualQuestion = {
@@ -308,7 +316,7 @@ export default function FormBuilderView() {
           </div>
           <div className="flex flex-wrap gap-3">
             <button
-              onClick={() => window.location.hash = 'preparacao'}
+              onClick={() => window.location.hash = 'responder'}
               className="flex items-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-emerald-700 transition-all duration-200 hover:scale-105"
             >
               <FileText className="w-4 h-4" />
