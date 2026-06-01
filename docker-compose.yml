@@ -12,7 +12,8 @@ services:
     environment:
       - PORT
       - NODE_ENV
-      - MONGO_URI=mongodb://root:example@mongo:27017/xls_fusion?authSource=admin
+      - MONGO_URI
+      - DATABASE_URL
     depends_on:
       mongo:
         condition: service_healthy

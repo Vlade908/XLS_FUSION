@@ -23,16 +23,22 @@ export function getPrisma(): PrismaClient {
 }
 
 export async function connectDB() {
-  const prisma = getPrisma();
+  const usePrisma = process.env.USE_PRISMA !== 'false';
 
   try {
-    // 1. Conecta o Prisma
-    await prisma.$connect();
+    if (usePrisma) {
+      // 1. Conecta o Prisma
+      const prisma = getPrisma();
+      await prisma.$connect();
+      console.log('⬡ Conectado ao Prisma com sucesso!');
+    } else {
+      console.log('⬡ Prisma está desabilitado.');
+    }
     
     // 2. Conecta o Mongoose
-    const mongoUri = process.env.DATABASE_URL as string;
+    const mongoUri = (process.env.MONGO_URI || process.env.DATABASE_URL) as string;
     await mongoose.connect(mongoUri, { family: 4 });
-    console.log('✅ Conectado ao MongoDB com sucesso (Mongoose & Prisma)!');
+    console.log(`✅ Conectado ao MongoDB com sucesso (Mongoose${usePrisma ? ' & Prisma' : ''})!`);
   } catch (error) {
     console.error('❌ Erro ao conectar ao banco de dados:', error);
     throw error;
