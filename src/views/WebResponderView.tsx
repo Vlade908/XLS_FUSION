@@ -4,7 +4,7 @@ import { Send, CheckCircle, Mail, AlertCircle } from 'lucide-react';
 interface Question {
   id: string;
   label: string;
-  type: 'simnao' | 'alternativa' | 'respostaescrita' | 'data' | 'link' | 'check';
+  type: 'simnao' | 'alternativa' | 'respostaescrita' | 'data' | 'link' | 'check' | 'arquivo';
   options: string[];
   parentId?: string | null;
   showWhenValue?: string;
@@ -27,7 +27,8 @@ const questionTypeIcons = {
   respostaescrita: '📝',
   data: '📅',
   link: '🔗',
-  check: '☑️'
+  check: '☑️',
+  arquivo: '📁'
 };
 
 export default function WebResponderView({ formId }: { formId: string }) {
@@ -302,6 +303,114 @@ export default function WebResponderView({ formId }: { formId: string }) {
                         className="w-full rounded-2xl border border-slate-200 p-4 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 bg-slate-50 transition-all" 
                         placeholder="https://..." 
                       />
+                    )}
+
+                    {question.type === 'arquivo' && (
+                      <div className="space-y-4">
+                        <textarea 
+                          value={answers[question.id]?.text || ''} 
+                          onChange={(e) => {
+                            const current = answers[question.id] || {};
+                            setAnswers({ ...answers, [question.id]: { ...current, text: e.target.value } });
+                          }} 
+                          className="w-full rounded-2xl border border-slate-200 p-5 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 bg-slate-50 transition-all" 
+                          placeholder="Escreva seus comentários ou descrição..." 
+                          rows={4} 
+                        />
+                        
+                        <div className="p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center text-center space-y-4">
+                          {!answers[question.id]?.fileId && !answers[question.id]?.uploading && (
+                            <>
+                              <div className="text-4xl">📤</div>
+                              <div className="space-y-1">
+                                <p className="text-slate-900 text-xs font-black uppercase italic">Enviar Arquivo</p>
+                                <p className="text-slate-500 text-[10px] font-bold">Selecione um arquivo para enviar com sua resposta.</p>
+                              </div>
+                              <div className="w-full max-w-xs">
+                                <input 
+                                  type="file" 
+                                  id={`upload-web-${question.id}`} 
+                                  className="hidden" 
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    
+                                    const current = answers[question.id] || {};
+                                    setAnswers({ ...answers, [question.id]: { ...current, uploading: true } });
+                                    
+                                    const formData = new FormData();
+                                    formData.append('file', file);
+                                    formData.append('responder', email);
+                                    formData.append('questionNumber', question.id);
+                                    formData.append('formName', form?.name || 'formulario');
+                                    
+                                    try {
+                                      const res = await fetch('/api/public-upload-anexo', { 
+                                        method: 'POST', 
+                                        body: formData 
+                                      });
+                                      if (res.ok) {
+                                        const result = await res.json();
+                                        setAnswers({ 
+                                          ...answers, 
+                                          [question.id]: { 
+                                            ...current, 
+                                            text: current.text || '', 
+                                            fileId: result.file.id, 
+                                            fileName: result.file.originalname, 
+                                            uploading: false 
+                                          } 
+                                        });
+                                      } else {
+                                        throw new Error();
+                                      }
+                                    } catch (err) {
+                                      alert("Erro ao enviar o arquivo. Tente novamente.");
+                                      setAnswers({ ...answers, [question.id]: { ...current, uploading: false } });
+                                    }
+                                  }} 
+                                />
+                                <label 
+                                  htmlFor={`upload-web-${question.id}`} 
+                                  className="flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer shadow-md w-full text-center"
+                                >
+                                  Selecionar Arquivo
+                                </label>
+                              </div>
+                            </>
+                          )}
+
+                          {answers[question.id]?.uploading && (
+                            <p className="text-sm font-medium text-slate-500 animate-pulse">Enviando arquivo...</p>
+                          )}
+
+                          {answers[question.id]?.fileId && (
+                            <div className="w-full p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className="text-xl">📎</span>
+                                <div className="text-left">
+                                  <p className="text-emerald-950 text-[10px] font-black uppercase leading-none">Arquivo Confirmado</p>
+                                  <p className="text-emerald-600 text-[10px] font-bold mt-1 truncate max-w-[180px] md:max-w-xs">
+                                    {answers[question.id].fileName}
+                                  </p>
+                                </div>
+                              </div>
+                              <button 
+                                onClick={() => {
+                                  const current = answers[question.id] || {};
+                                  const next = { ...current };
+                                  delete next.fileId;
+                                  delete next.fileName;
+                                  setAnswers({ ...answers, [question.id]: next });
+                                }} 
+                                className="text-xs text-rose-500 font-bold hover:underline"
+                              >
+                                Remover
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>

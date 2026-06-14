@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { FormModel, AccessRequestModel, ResponseModel } from '../models/index';
 
-const allowedQuestionTypes = ['simnao', 'alternativa', 'respostaescrita', 'data', 'link', 'check'] as const;
+const allowedQuestionTypes = ['simnao', 'alternativa', 'respostaescrita', 'data', 'link', 'check', 'arquivo'] as const;
 type QuestionType = (typeof allowedQuestionTypes)[number];
 
 const isValidEmail = (value: any) =>
@@ -74,7 +74,7 @@ export const listForms = async (req: Request, res: Response) => {
       ],
     }).lean();
 
-    const mapped = forms.map((form) => ({
+    const mapped = forms.map((form: any) => ({
       _id: form._id,
       name: form.name,
       title: form.title,
@@ -83,6 +83,7 @@ export const listForms = async (req: Request, res: Response) => {
       allowedEmails: form.allowedEmails,
       allowedDomains: form.allowedDomains,
       questions: form.questions,
+      history: form.history || [],
       isOwner: form.ownerEmail === email,
       hasAccess:
         form.ownerEmail === email ||
@@ -122,6 +123,71 @@ export const saveForm = async (req: Request, res: Response) => {
       if (!existing) return res.status(404).json({ error: 'Formulário não encontrado.' });
       if (existing.ownerEmail !== normalizedOwnerEmail)
         return res.status(403).json({ error: 'Apenas o dono pode editar o formulário.' });
+
+      // Generate structural changes logs
+      const changes: any[] = [];
+      if (existing.name !== nameValue) {
+        changes.push({ field: 'Nome', from: existing.name, to: nameValue });
+      }
+      if (existing.title !== titleValue) {
+        changes.push({ field: 'Título', from: existing.title, to: titleValue });
+      }
+      if (existing.description !== descriptionValue) {
+        changes.push({ field: 'Descrição', from: existing.description, to: descriptionValue });
+      }
+      
+      const oldEmails = existing.allowedEmails || [];
+      if (JSON.stringify([...oldEmails].sort()) !== JSON.stringify([...normalizedAllowedEmails].sort())) {
+        changes.push({ field: 'E-mails autorizados', from: oldEmails.join(', '), to: normalizedAllowedEmails.join(', ') });
+      }
+      
+      const oldDomains = existing.allowedDomains || [];
+      if (JSON.stringify([...oldDomains].sort()) !== JSON.stringify([...normalizedAllowedDomains].sort())) {
+        changes.push({ field: 'Domínios autorizados', from: oldDomains.join(', '), to: normalizedAllowedDomains.join(', ') });
+      }
+      
+      const oldQuestions = existing.questions || [];
+      const oldQMap = new Map(oldQuestions.map((q: any) => [q.id, q]));
+      const newQMap = new Map(normalizedQuestions.map((q: any) => [q.id, q]));
+      
+      for (const rawQ of normalizedQuestions) {
+        const q = rawQ as any;
+        const oldQ = oldQMap.get(q.id) as any;
+        if (!oldQ) {
+          changes.push({ field: `Pergunta Adicionada: "${q.label}"`, from: null, to: `Tipo: ${q.type}` });
+        } else {
+          const qChanges: string[] = [];
+          if (oldQ.label !== q.label) qChanges.push(`Rótulo: de "${oldQ.label}" para "${q.label}"`);
+          if (oldQ.type !== q.type) qChanges.push(`Tipo: de "${oldQ.type}" para "${q.type}"`);
+          if (JSON.stringify(oldQ.options) !== JSON.stringify(q.options)) {
+            qChanges.push(`Opções: de [${oldQ.options.join(', ')}] para [${q.options.join(', ')}]`);
+          }
+          if (oldQ.parentId !== q.parentId || oldQ.showWhenValue !== q.showWhenValue) {
+            qChanges.push(`Condição: de (Se Q${oldQ.parentId} for ${oldQ.showWhenValue}) para (Se Q${q.parentId} for ${q.showWhenValue})`);
+          }
+          if (qChanges.length > 0) {
+            changes.push({ field: `Pergunta Alterada: "${q.label}"`, from: null, to: qChanges.join(' | ') });
+          }
+        }
+      }
+      
+      for (const rawOldQ of oldQuestions) {
+        const oldQ = rawOldQ as any;
+        if (!newQMap.has(oldQ.id)) {
+          changes.push({ field: `Pergunta Removida`, from: `"${oldQ.label}" (Tipo: ${oldQ.type})`, to: null });
+        }
+      }
+
+      if (changes.length > 0) {
+        if (!existing.history) {
+          existing.history = [];
+        }
+        existing.history.push({
+          updatedAt: new Date(),
+          changedBy: ownerEmail,
+          changes: changes
+        });
+      }
 
       existing.name = nameValue;
       existing.title = titleValue;

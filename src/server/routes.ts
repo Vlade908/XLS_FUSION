@@ -81,6 +81,7 @@ export function registerRoutes(app: Express) {
   // 6. Upload de Arquivos (GridFS)
   // ─────────────────────────────────────────────
   app.post('/api/upload-anexo', requireAuth, upload.single('file'), uploadAnexo);
+  app.post('/api/public-upload-anexo', upload.single('file'), uploadAnexo);
   app.post('/api/upload-planilha', requireAuth, upload.single('file'), uploadPlanilha);
 
   // ─────────────────────────────────────────────

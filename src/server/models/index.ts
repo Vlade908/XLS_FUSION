@@ -20,7 +20,7 @@ const QuestionSchema = new Schema(
     type: {
       type: String,
       required: true,
-      enum: ['simnao', 'alternativa', 'respostaescrita', 'data', 'link', 'check'],
+      enum: ['simnao', 'alternativa', 'respostaescrita', 'data', 'link', 'check', 'arquivo'],
     },
     options: { type: [String], default: [] },
     parentId: { type: String, default: null },
@@ -39,6 +39,16 @@ const FormSchema = new Schema(
     allowedEmails: { type: [String], default: [] },
     allowedDomains: { type: [String], default: [] },
     manual: { type: Boolean, default: true },
+    history: {
+      type: [
+        {
+          updatedAt: { type: Date, default: Date.now },
+          changedBy: { type: String, required: true },
+          changes: { type: Schema.Types.Mixed, required: true }
+        }
+      ],
+      default: []
+    }
   },
   { timestamps: true }
 );

@@ -19,7 +19,8 @@ import {
   Loader2,
   Mail
 } from "lucide-react";
-import * as XLSX from "xlsx-js-style";
+import * as xlsxModule from "xlsx-js-style";
+const XLSX = (xlsxModule as any).default || xlsxModule;
 import { FileCard } from "../components/FileCard";
 import { smartClean, normID } from "../utils/excelLogic";
 import AuditorUpload from "../components/AuditorUpload";
@@ -27,7 +28,7 @@ import AuditorUpload from "../components/AuditorUpload";
 interface Question {
   id: string;
   label: string;
-  type: 'simnao' | 'alternativa' | 'respostaescrita' | 'data' | 'link' | 'check';
+  type: 'simnao' | 'alternativa' | 'respostaescrita' | 'data' | 'link' | 'check' | 'arquivo';
   options: string[];
   parentId?: string | null;
   showWhenValue?: string;
@@ -85,7 +86,7 @@ export default function ResponderView() {
   const [responderQuestions, setResponderQuestions] = useState<any[]>([]);
   const [responderAnswers, setResponderAnswers] = useState<Record<string | number, any>>({});
   const [isResponderFinished, setIsResponderFinished] = useState(false);
-  const [responderWorkbook, setResponderWorkbook] = useState<XLSX.WorkBook | null>(null);
+  const [responderWorkbook, setResponderWorkbook] = useState<xlsxModule.WorkBook | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [offlineError, setOfflineError] = useState("");
 
@@ -203,10 +204,10 @@ export default function ResponderView() {
   };
 
   // --- Lógica do Modo Offline (Excel Legado) ---
-  const findSheet = (wb: XLSX.WorkBook, target: string) => {
+  const findSheet = (wb: xlsxModule.WorkBook, target: string) => {
     const normalize = (s: string) =>
       s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    return wb.SheetNames.find((n) => normalize(n) === normalize(target));
+    return wb.SheetNames.find((n: string) => normalize(n) === normalize(target));
   };
 
   const handleAnswerFileUpload = async (file: File | null) => {
@@ -252,9 +253,9 @@ export default function ResponderView() {
       });
       setEmployeeMapping(employees);
       setAnswerFile(file);
-    } catch (err) {
-      console.error(err);
-      setOfflineError("Falha ao ler o arquivo Excel. Verifique se o formato está correto.");
+    } catch (err: any) {
+      console.error("XLS READ ERROR:", err);
+      setOfflineError(`Falha ao ler o arquivo Excel: ${err.message || String(err)}. Verifique se o formato está correto.`);
     }
   };
 
@@ -1057,6 +1058,119 @@ export default function ResponderView() {
                             className="w-full pl-10 pr-4 py-3.5 rounded-xl border border-slate-250 bg-slate-50 text-xs font-medium outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-indigo-600 shadow-inner"
                             placeholder="https://exemplo.com..."
                           />
+                        </div>
+                      )}
+
+                      {question.type === 'arquivo' && (
+                        <div className="space-y-4 max-w-xl">
+                          <textarea
+                            value={answers[question.id]?.text || ""}
+                            onChange={(e) => {
+                              const current = answers[question.id] || {};
+                              setAnswers(prev => ({ ...prev, [question.id]: { ...current, text: e.target.value } }));
+                            }}
+                            className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-xs font-medium shadow-inner resize-none min-h-[100px]"
+                            placeholder="Escreva seus comentários ou descrição..."
+                          />
+
+                          <div className="p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center text-center space-y-4">
+                            {!answers[question.id]?.fileId && !answers[question.id]?.uploading && (
+                              <>
+                                <div className="text-4xl">📤</div>
+                                <div className="space-y-1">
+                                  <p className="text-slate-900 text-xs font-black uppercase italic">Enviar Arquivo</p>
+                                  <p className="text-slate-500 text-[10px] font-bold">Selecione um arquivo para enviar com sua resposta.</p>
+                                </div>
+                                <div className="w-full max-w-xs">
+                                  <input 
+                                    type="file" 
+                                    id={`upload-online-${question.id}`} 
+                                    className="hidden" 
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      
+                                      const current = answers[question.id] || {};
+                                      setAnswers(prev => ({ 
+                                        ...prev, 
+                                        [question.id]: { ...current, uploading: true } 
+                                      }));
+                                      
+                                      const formData = new FormData();
+                                      formData.append('file', file);
+                                      formData.append('responder', user?.email || 'online-user');
+                                      formData.append('questionNumber', question.id);
+                                      formData.append('formName', selectedForm?.name || 'formulario');
+                                      
+                                      try {
+                                        const res = await authFetch('/api/upload-anexo', { 
+                                          method: 'POST', 
+                                          body: formData 
+                                        });
+                                        if (res.ok) {
+                                          const result = await res.json();
+                                          setAnswers(prev => ({
+                                            ...prev,
+                                            [question.id]: { 
+                                              ...current, 
+                                              text: current.text || '', 
+                                              fileId: result.file.id, 
+                                              fileName: result.file.originalname, 
+                                              uploading: false 
+                                            }
+                                          }));
+                                        } else {
+                                          throw new Error();
+                                        }
+                                      } catch (err) {
+                                        alert("Erro ao enviar o arquivo. Tente novamente.");
+                                        setAnswers(prev => ({ 
+                                          ...prev, 
+                                          [question.id]: { ...current, uploading: false } 
+                                        }));
+                                      }
+                                    }} 
+                                  />
+                                  <label 
+                                    htmlFor={`upload-online-${question.id}`} 
+                                    className="flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer shadow-md w-full text-center"
+                                  >
+                                    Selecionar Arquivo
+                                  </label>
+                                </div>
+                              </>
+                            )}
+
+                            {answers[question.id]?.uploading && (
+                              <p className="text-sm font-medium text-slate-500 animate-pulse">Enviando arquivo...</p>
+                            )}
+
+                            {answers[question.id]?.fileId && (
+                              <div className="w-full p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-xl">📎</span>
+                                  <div className="text-left">
+                                    <p className="text-emerald-950 text-[10px] font-black uppercase leading-none">Arquivo Confirmado</p>
+                                    <p className="text-emerald-600 text-[10px] font-bold mt-1 truncate max-w-[180px] md:max-w-xs">
+                                      {answers[question.id].fileName}
+                                    </p>
+                                  </div>
+                                </div>
+                                <button 
+                                  onClick={() => {
+                                    const current = answers[question.id] || {};
+                                    const next = { ...current };
+                                    delete next.fileId;
+                                    delete next.fileName;
+                                    setAnswers(prev => ({ ...prev, [question.id]: next }));
+                                  }} 
+                                  className="text-xs text-rose-500 font-bold hover:underline"
+                                >
+                                  Remover
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

@@ -28,6 +28,8 @@ const validateQuestionAnswer = (answer: any, question: any) => {
       return Array.isArray(answer) && answer.every((item) => typeof item === 'string');
     case 'respostaescrita':
       return typeof answer === 'string';
+    case 'arquivo':
+      return typeof answer === 'string' || (typeof answer === 'object' && answer !== null);
     case 'data':
       return typeof answer === 'string' && !Number.isNaN(Date.parse(answer));
     case 'link':
@@ -101,12 +103,30 @@ export const submitPublicResponse = async (req: Request, res: Response) => {
       }
     }
 
-    await ResponseModel.create({
-      formId: id,
-      responderEmail: normalizedEmail,
-      data,
-      submitted: true,
-    });
+    let existing = await ResponseModel.findOne({ formId: id, responderEmail: normalizedEmail });
+    if (!existing) {
+      await ResponseModel.create({
+        formId: id,
+        responderEmail: normalizedEmail,
+        data: data || {},
+        submitted: true,
+        history: []
+      });
+    } else {
+      const currentDataStr = JSON.stringify(existing.data || {});
+      const newDataStr = JSON.stringify(data || {});
+      
+      if (currentDataStr !== newDataStr) {
+        existing.history.push({
+          updatedAt: new Date(),
+          changedBy: normalizedEmail,
+          data: existing.data || {}
+        });
+        existing.data = data || {};
+      }
+      existing.submitted = true;
+      await existing.save();
+    }
 
     res.status(201).json({ message: 'Resposta enviada com sucesso!' });
   } catch (err: any) {

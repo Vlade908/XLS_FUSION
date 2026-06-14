@@ -36,6 +36,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>(initialRoute.tab);
   const [shareHash, setShareHash] = useState<string | null>(initialRoute.shareHash);
   const { user, logout, loading } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // 2. Efeito para atualizar a URL sempre que a aba mudar
   useEffect(() => {
@@ -115,8 +116,35 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-[#F0F2F5] overflow-hidden font-sans">
-      <aside className={`transition-all duration-700 ease-in-out border-r border-slate-200 bg-white flex flex-col z-50 shadow-2xl ${isImmersive ? 'w-20' : 'w-72'}`}>
+    <div className="flex flex-col md:flex-row h-screen bg-[#F0F2F5] overflow-hidden font-sans">
+      {/* Mobile Top Header */}
+      <header className="md:hidden flex items-center justify-between bg-white px-6 py-4 border-b border-slate-200 shadow-sm z-30">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-black shadow-md text-sm">F</div>
+          <h1 className="text-lg font-black text-slate-800 tracking-tighter">XLS <span className="text-indigo-600">FUSION</span></h1>
+        </div>
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          aria-label="Menu"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </header>
+
+      {/* Backdrop for Mobile Sidebar */}
+      {isMobileMenuOpen && (
+        <div 
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black/40 z-40 md:hidden transition-opacity duration-300"
+        />
+      )}
+
+      <aside className={`fixed md:relative inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 shadow-2xl transition-transform duration-300 md:translate-x-0 ${
+        isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'
+      } ${isImmersive ? 'md:w-20' : 'md:w-72'}`}>
         <div className="p-6 flex items-center gap-3 justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-black shadow-lg">F</div>
@@ -140,6 +168,7 @@ export default function App() {
               onClick={() => {
                 window.location.hash = tab.id;
                 setActiveTab(tab.id as any);
+                setIsMobileMenuOpen(false); // Close menu on select
               }}
               className={`w-full flex items-center transition-all duration-500 rounded-2xl ${
                 activeTab === tab.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50'
@@ -153,7 +182,7 @@ export default function App() {
       </aside>
 
       <main className="flex-grow overflow-y-auto relative">
-        <div className={isImmersive ? "" : "p-10"}>
+        <div className={isImmersive ? "" : "p-4 sm:p-6 md:p-10"}>
           {activeTab === 'builder' && <FormBuilderView />}
           {activeTab === 'responder' && <ResponderView />}
           {activeTab === 'notifications' && <NotificationsView />}

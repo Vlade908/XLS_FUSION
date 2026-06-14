@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
-import { Plus, Edit3, Trash2, Eye, Save, FileText, Users, Settings, CheckCircle, XCircle, ArrowUp, ArrowDown, Copy, Zap, Link } from 'lucide-react';
+import { Plus, Edit3, Trash2, Eye, Save, FileText, Users, Settings, CheckCircle, XCircle, ArrowUp, ArrowDown, Copy, Zap, Link, History, ArrowLeft, Calendar } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-type QuestionType = 'simnao' | 'alternativa' | 'respostaescrita' | 'data' | 'link' | 'check';
+type QuestionType = 'simnao' | 'alternativa' | 'respostaescrita' | 'data' | 'link' | 'check' | 'arquivo';
 
 type QuestionDraft = {
   label?: string;
@@ -32,6 +33,11 @@ interface ManualForm {
   allowedDomains: string[];
   hasAccess?: boolean;
   isOwner?: boolean;
+  history?: {
+    updatedAt: string;
+    changedBy: string;
+    changes: { field: string; from: any; to: any }[];
+  }[];
 }
 
 const questionTypeLabels = {
@@ -40,7 +46,8 @@ const questionTypeLabels = {
   respostaescrita: 'Texto Livre',
   data: 'Data',
   link: 'Link',
-  check: 'Múltipla Escolha'
+  check: 'Múltipla Escolha',
+  arquivo: 'Texto + Envio de Arquivo'
 };
 
 const questionTypeIcons = {
@@ -49,7 +56,8 @@ const questionTypeIcons = {
   respostaescrita: '📝',
   data: '📅',
   link: '🔗',
-  check: '☑️'
+  check: '☑️',
+  arquivo: '📁'
 };
 
 const quickTemplates = [
@@ -58,7 +66,8 @@ const quickTemplates = [
   { type: 'alternativa' as QuestionType, label: 'Qual é o seu cargo?', options: ['Gerente', 'Analista', 'Assistente', 'Outro'] },
   { type: 'data' as QuestionType, label: 'Qual é a data de nascimento?', options: [] },
   { type: 'link' as QuestionType, label: 'Qual é o seu LinkedIn?', options: [] },
-  { type: 'check' as QuestionType, label: 'Quais habilidades você possui?', options: ['React', 'Node.js', 'Python', 'SQL', 'AWS'] }
+  { type: 'check' as QuestionType, label: 'Quais habilidades você possui?', options: ['React', 'Node.js', 'Python', 'SQL', 'AWS'] },
+  { type: 'arquivo' as QuestionType, label: 'Envie seu relatório/comprovante e comente sobre ele:', options: [] }
 ];
 
 export default function FormBuilderView() {
@@ -73,6 +82,32 @@ export default function FormBuilderView() {
   const [activeTab, setActiveTab] = useState<'forms' | 'create'>('forms');
   const [showPreview, setShowPreview] = useState(false);
   const [previewAnswers, setPreviewAnswers] = useState<Record<string, any>>({});
+
+  // States for the details modal
+  const [selectedDetailsForm, setSelectedDetailsForm] = useState<ManualForm | null>(null);
+  const [detailsTab, setDetailsTab] = useState<'geral' | 'historico' | 'respostas'>('geral');
+  const [formResponses, setFormResponses] = useState<any[]>([]);
+  const [loadingResponses, setLoadingResponses] = useState(false);
+  const [selectedRespondent, setSelectedRespondent] = useState<any | null>(null);
+  const [selectedSnapshotIndex, setSelectedSnapshotIndex] = useState<number | null>(null);
+
+  const loadFormResponses = async (formId: string) => {
+    setLoadingResponses(true);
+    try {
+      const response = await authFetch(`/api/forms/${formId}/responses-dashboard`);
+      if (response.ok) {
+        const data = await response.json();
+        setFormResponses(Array.isArray(data) ? data : []);
+      } else {
+        setFormResponses([]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar respostas do formulário:', error);
+      setFormResponses([]);
+    } finally {
+      setLoadingResponses(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -116,19 +151,27 @@ export default function FormBuilderView() {
     setEditingForm({ ...editingForm, ...changes });
   };
 
-  const addQuestion = (template?: typeof quickTemplates[0]) => {
-    if (!editingForm) return;
+  const loadTemplate = (template: typeof quickTemplates[0]) => {
+    setNewQuestion({
+      label: template.label,
+      type: template.type,
+      options: template.options ? [...template.options] : [],
+      parentId: '',
+      showWhenValue: ''
+    });
+  };
 
-    const questionData = (template || newQuestion) as QuestionDraft;
-    if (!questionData.label && !template) return;
+  const addQuestion = () => {
+    if (!editingForm) return;
+    if (!newQuestion.label?.trim()) return;
 
     const nextQuestion: ManualQuestion = {
       id: `Q${Date.now()}`,
-      label: questionData.label?.trim() || '',
-      type: questionData.type as QuestionType,
-      options: questionData.options ? questionData.options.filter(Boolean) : [],
-      parentId: questionData.parentId || null,
-      showWhenValue: questionData.showWhenValue || '',
+      label: newQuestion.label.trim(),
+      type: newQuestion.type as QuestionType,
+      options: newQuestion.options ? newQuestion.options.filter(Boolean) : [],
+      parentId: newQuestion.parentId || null,
+      showWhenValue: newQuestion.showWhenValue || '',
     };
 
     setEditingForm({ ...editingForm, questions: [...editingForm.questions, nextQuestion] });
@@ -293,12 +336,446 @@ export default function FormBuilderView() {
                   {question.type === 'link' && (
                     <input type="url" value={previewAnswers[question.id] || ''} onChange={(e) => setPreviewAnswers({ ...previewAnswers, [question.id]: e.target.value })} className="w-full rounded-lg border border-slate-200 p-3 text-sm" placeholder="https://..." />
                   )}
+
+                  {question.type === 'arquivo' && (
+                    <div className="space-y-3">
+                      <textarea className="w-full rounded-lg border border-slate-200 p-3 text-sm" placeholder="Escreva observações ou comentários..." rows={3} disabled />
+                      <div className="p-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl text-center">
+                        <span className="text-xs text-slate-500 font-bold">📎 Enviar arquivo...</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
             );
           })}
         </div>
+      </div>
+    );
+  };
+
+  const renderDetailsModal = () => {
+    if (!selectedDetailsForm) return null;
+
+    const isOwner = selectedDetailsForm.ownerEmail === email;
+    const historyLogs = selectedDetailsForm.history || [];
+
+    const renderAnswerVal = (question: any, val: any) => {
+      if (val === undefined || val === null || val === '') {
+        return <span className="text-slate-400 italic">Sem resposta</span>;
+      }
+      if (question.type === 'check') {
+        return (
+          <div className="flex flex-wrap gap-1">
+            {Array.isArray(val) ? val.map((v, i) => (
+              <span key={i} className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100">
+                {v}
+              </span>
+            )) : String(val)}
+          </div>
+        );
+      }
+      if (question.type === 'arquivo') {
+        const text = val.text || '';
+        const fileName = val.fileName || '';
+        const fileId = val.fileId || '';
+        return (
+          <div className="space-y-2">
+            {text && <p className="text-slate-700 text-sm whitespace-pre-wrap">{text}</p>}
+            {fileId && (
+              <div className="flex items-center gap-2 p-3 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-100 inline-flex">
+                <span>📎 {fileName || 'Arquivo'}</span>
+                <span className="text-[10px] text-slate-400 font-normal">({fileId})</span>
+              </div>
+            )}
+          </div>
+        );
+      }
+      return <span className="text-slate-700 text-sm font-semibold whitespace-pre-wrap">{String(val)}</span>;
+    };
+
+    return (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="bg-white rounded-[2rem] border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+        >
+          {/* Modal Header */}
+          <div className="flex items-start justify-between p-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+            <div>
+              <span className="text-[10px] font-black uppercase bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full mb-2 inline-block">
+                Detalhes do Formulário
+              </span>
+              <h2 className="text-2xl font-black text-slate-900 leading-tight">
+                {selectedDetailsForm.title || selectedDetailsForm.name}
+              </h2>
+              <p className="text-sm text-slate-500 mt-1 font-medium">
+                {selectedDetailsForm.description || 'Sem descrição cadastrada.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setSelectedDetailsForm(null)}
+              className="text-slate-400 hover:text-slate-650 p-2 rounded-xl hover:bg-slate-100 transition-colors"
+            >
+              <XCircle className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Modal Navigation Tabs */}
+          <div className="flex border-b border-slate-100 p-2 gap-1 bg-slate-50/50">
+            <button
+              onClick={() => {
+                setDetailsTab('geral');
+                setSelectedRespondent(null);
+                setSelectedSnapshotIndex(null);
+              }}
+              className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
+                detailsTab === 'geral'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              Geral
+            </button>
+            <button
+              onClick={() => {
+                setDetailsTab('historico');
+                setSelectedRespondent(null);
+                setSelectedSnapshotIndex(null);
+              }}
+              className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
+                detailsTab === 'historico'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              Histórico do Formulário
+            </button>
+            <button
+              onClick={() => {
+                setDetailsTab('respostas');
+                setSelectedRespondent(null);
+                setSelectedSnapshotIndex(null);
+              }}
+              className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
+                detailsTab === 'respostas'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              Respostas ({loadingResponses ? '...' : formResponses.length})
+            </button>
+          </div>
+
+          {/* Modal Content Area */}
+          <div className="flex-1 overflow-y-auto p-6 min-h-0 custom-scrollbar">
+            {detailsTab === 'geral' && (
+              <div className="space-y-6">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-5 bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-100 rounded-2xl flex flex-col justify-between shadow-sm">
+                    <span className="text-[10px] font-black uppercase text-indigo-600 tracking-wider">Perguntas</span>
+                    <span className="text-3xl font-black text-indigo-950 mt-2">{selectedDetailsForm.questions.length}</span>
+                  </div>
+                  <div className="p-5 bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-100 rounded-2xl flex flex-col justify-between shadow-sm">
+                    <span className="text-[10px] font-black uppercase text-emerald-600 tracking-wider">Total Respostas</span>
+                    <span className="text-3xl font-black text-emerald-950 mt-2">
+                      {loadingResponses ? '...' : formResponses.length}
+                    </span>
+                  </div>
+                  <div className="p-5 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/60 rounded-2xl flex flex-col justify-between shadow-sm">
+                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Privacidade</span>
+                    <span className="text-sm font-bold text-slate-800 mt-2 truncate">
+                      {selectedDetailsForm.allowedEmails.length > 0 || selectedDetailsForm.allowedDomains.length > 0
+                        ? 'Restrito (Privado)'
+                        : 'Livre (Público)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Metadata & Allowed list */}
+                <div className="bg-slate-50 rounded-2xl border border-slate-150 p-6 space-y-4">
+                  <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest">Informações Adicionais</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-medium">
+                    <div>
+                      <span className="text-slate-400">Proprietário:</span>
+                      <p className="text-slate-800 font-bold">{selectedDetailsForm.ownerEmail}</p>
+                    </div>
+                    {selectedDetailsForm.allowedEmails.length > 0 && (
+                      <div>
+                        <span className="text-slate-400">E-mails autorizados:</span>
+                        <p className="text-slate-850 truncate">{selectedDetailsForm.allowedEmails.join(', ')}</p>
+                      </div>
+                    )}
+                    {selectedDetailsForm.allowedDomains.length > 0 && (
+                      <div>
+                        <span className="text-slate-400">Domínios autorizados:</span>
+                        <p className="text-slate-850 truncate">{selectedDetailsForm.allowedDomains.map(d => `@${d}`).join(', ')}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Structure Preview */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest pl-1">Perguntas do Formulário</h4>
+                  <div className="space-y-2.5">
+                    {selectedDetailsForm.questions.map((q, idx) => (
+                      <div key={q.id} className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="w-5 h-5 bg-slate-100 text-slate-600 rounded text-[10px] font-black flex items-center justify-center">
+                            {idx + 1}
+                          </span>
+                          <div>
+                            <p className="text-xs font-bold text-slate-800 leading-tight">{q.label}</p>
+                            <span className="text-[9px] font-black uppercase text-indigo-500 tracking-wider">
+                              {questionTypeLabels[q.type]}
+                            </span>
+                          </div>
+                        </div>
+                        {q.parentId && (
+                          <span className="text-[8px] font-black bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded-full">
+                            Condicional (Se Q{q.parentId})
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {detailsTab === 'historico' && (
+              <div className="space-y-6">
+                <h3 className="text-sm font-black text-slate-700 uppercase italic tracking-wider flex items-center gap-2">
+                  <History className="w-4 h-4 text-indigo-500" />
+                  Histórico de Alterações de Estrutura
+                </h3>
+
+                {historyLogs.length === 0 ? (
+                  <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <span className="text-3xl">📝</span>
+                    <p className="text-xs text-slate-500 font-bold mt-3">Nenhuma alteração estrutural registrada ainda.</p>
+                    <p className="text-[10px] text-slate-400 mt-1">Todas as atualizações de rótulos, tipos ou perguntas serão registradas automaticamente.</p>
+                  </div>
+                ) : (
+                  <div className="relative border-l border-slate-200 pl-6 space-y-8 ml-3 py-2">
+                    {historyLogs.slice().reverse().map((log: any, idx: number) => (
+                      <div key={idx} className="relative">
+                        {/* Timeline Dot */}
+                        <div className="absolute -left-[31px] top-1.5 w-4 h-4 rounded-full border-4 border-white bg-indigo-600 shadow-sm" />
+                        
+                        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-3">
+                          <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
+                            <span className="flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5" />
+                              {new Date(log.updatedAt).toLocaleString('pt-BR')}
+                            </span>
+                            <span className="bg-slate-200 text-slate-700 px-2.5 py-0.5 rounded-full">
+                              Por: {log.changedBy}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {Array.isArray(log.changes) ? log.changes.map((change: any, cIdx: number) => (
+                              <div key={cIdx} className="text-xs bg-white rounded-xl border border-slate-200/60 p-3 space-y-1">
+                                <span className="font-bold text-slate-700">{change.field}</span>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1 pt-1.5 border-t border-slate-100">
+                                  {change.from !== null && (
+                                    <div className="text-rose-600">
+                                      <span className="text-[9px] font-black uppercase tracking-wider block opacity-75">Antes</span>
+                                      <p className="font-medium whitespace-pre-wrap">{String(change.from)}</p>
+                                    </div>
+                                  )}
+                                  {change.to !== null && (
+                                    <div className="text-emerald-700">
+                                      <span className="text-[9px] font-black uppercase tracking-wider block opacity-75">Depois</span>
+                                      <p className="font-bold whitespace-pre-wrap">{String(change.to)}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )) : <p className="text-xs text-slate-700">{JSON.stringify(log.changes)}</p>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {detailsTab === 'respostas' && (
+              <div className="space-y-6">
+                {!isOwner ? (
+                  <div className="text-center py-10 bg-amber-50 rounded-2xl border border-amber-200">
+                    <span className="text-4xl">🔒</span>
+                    <p className="text-sm font-black text-amber-900 mt-3 uppercase tracking-wide">Acesso Restrito</p>
+                    <p className="text-xs text-amber-700 mt-1 max-w-sm mx-auto">
+                      Apenas o proprietário deste formulário pode visualizar os respondentes e suas respectivas respostas.
+                    </p>
+                  </div>
+                ) : selectedRespondent ? (
+                  /* RESPONDENT DETAIL SUBVIEW */
+                  <div className="space-y-5">
+                    {/* Back Button */}
+                    <button
+                      onClick={() => {
+                        setSelectedRespondent(null);
+                        setSelectedSnapshotIndex(null);
+                      }}
+                      className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-705 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition-all"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      Voltar para a lista
+                    </button>
+
+                    {/* Respondent Title Card */}
+                    <div className="bg-slate-900 text-white rounded-2xl p-6 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 text-white/5 font-black text-6xl pointer-events-none select-none italic">
+                        RESPOSTAS
+                      </div>
+                      <div className="relative z-10">
+                        <span className="text-[8px] font-black uppercase bg-indigo-500/30 text-indigo-200 px-3 py-1 rounded-full mb-2 inline-block tracking-widest">
+                          Respondente
+                        </span>
+                        <h4 className="text-lg font-black tracking-tight truncate">
+                          {selectedRespondent.responderEmail}
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          Primeiro envio em: {new Date(selectedRespondent.createdAt).toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Snapshots Version Selector (Post-submission modification history) */}
+                    {selectedRespondent.history && selectedRespondent.history.length > 0 && (
+                      <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <History className="w-4 h-4 text-indigo-500" />
+                          <span className="text-xs font-black text-slate-700 uppercase tracking-wider">Histórico de Alterações Pós-Submissão</span>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => setSelectedSnapshotIndex(null)}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                              selectedSnapshotIndex === null
+                                ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            Versão Atual ({new Date(selectedRespondent.updatedAt).toLocaleDateString('pt-BR')})
+                          </button>
+                          {selectedRespondent.history.map((snapshot: any, snapIdx: number) => (
+                            <button
+                              key={snapIdx}
+                              onClick={() => setSelectedSnapshotIndex(snapIdx)}
+                              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                                selectedSnapshotIndex === snapIdx
+                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-indigo-55'
+                              }`}
+                            >
+                              Versão {snapIdx + 1} ({new Date(snapshot.updatedAt).toLocaleDateString('pt-BR')})
+                              </button>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-slate-550 italic pl-1">
+                          {selectedSnapshotIndex === null 
+                            ? 'Você está visualizando a última versão da resposta enviada pelo usuário.' 
+                            : `Você está visualizando a Versão ${selectedSnapshotIndex + 1} salva em ${new Date(selectedRespondent.history[selectedSnapshotIndex].updatedAt).toLocaleString('pt-BR')}.`}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Answers Render list */}
+                    <div className="space-y-4 pt-1">
+                      {(() => {
+                        const currentAnswers = selectedSnapshotIndex === null
+                          ? selectedRespondent.data || {}
+                          : selectedRespondent.history[selectedSnapshotIndex]?.data || {};
+
+                        return selectedDetailsForm.questions.map((q, idx) => {
+                          const val = currentAnswers[q.id];
+                          return (
+                            <div key={q.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-2">
+                              <p className="font-bold text-slate-800 text-sm leading-tight">
+                                {idx + 1}. {q.label}
+                              </p>
+                              <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-150/50 mt-1">
+                                {renderAnswerVal(q, val)}
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                ) : (
+                  /* RESPONDENTS GRID/LIST */
+                  <div className="space-y-4">
+                    {loadingResponses ? (
+                      <div className="text-center py-12">
+                        <p className="text-slate-500 font-medium animate-pulse">Carregando respostas...</p>
+                      </div>
+                    ) : formResponses.length === 0 ? (
+                      <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        <span className="text-3xl">📭</span>
+                        <p className="text-xs text-slate-500 font-bold mt-3">Nenhuma resposta recebida para este formulário.</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Quando alguém responder, os dados aparecerão aqui.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {formResponses.map((resp: any) => {
+                          const editCount = resp.history ? resp.history.length : 0;
+                          return (
+                            <div
+                              key={resp._id}
+                              onClick={() => setSelectedRespondent(resp)}
+                              className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md hover:border-slate-300 cursor-pointer transition-all flex flex-col justify-between group relative overflow-hidden"
+                            >
+                              <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
+                              <div className="space-y-2 pl-1.5">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[8px] font-black uppercase bg-slate-100 text-slate-500 px-2 py-0.5 rounded">
+                                    ID: {resp._id.slice(-6)}
+                                  </span>
+                                  {editCount > 0 && (
+                                    <span className="text-[8px] font-black uppercase bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                      <History className="w-2.5 h-2.5" />
+                                      Modificado ({editCount})
+                                    </span>
+                                  )}
+                                </div>
+                                <h4 className="text-sm font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
+                                  {resp.responderEmail}
+                                </h4>
+                              </div>
+
+                              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-bold pl-1.5">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  {new Date(resp.updatedAt).toLocaleDateString('pt-BR')}
+                                </span>
+                                <span className="text-indigo-600 font-black group-hover:underline">
+                                  Ver Respostas →
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </motion.div>
       </div>
     );
   };
@@ -373,7 +850,17 @@ export default function FormBuilderView() {
               </div>
             ) : (
               forms.map((form) => (
-                <div key={form._id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-lg transition-all duration-200 hover:scale-[1.02]">
+                <div
+                  key={form._id}
+                  onClick={() => {
+                    setSelectedDetailsForm(form);
+                    setDetailsTab('geral');
+                    setSelectedRespondent(null);
+                    setSelectedSnapshotIndex(null);
+                    loadFormResponses(form._id!);
+                  }}
+                  className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-lg transition-all duration-200 hover:scale-[1.02] cursor-pointer"
+                >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <h3 className="font-bold text-slate-900 mb-1">{form.name}</h3>
@@ -401,13 +888,14 @@ export default function FormBuilderView() {
 
                   <p className="text-sm text-slate-500 mb-4 line-clamp-2">{form.description || 'Sem descrição'}</p>
 
-                    <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-400">{form.questions.length} perguntas</span>
                     <div className="flex gap-2">
                       {form.isOwner && (
                         <>
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               const url = `${window.location.origin}/share-form/${form._id}`;
                               navigator.clipboard.writeText(url);
                               alert('Link de compartilhamento copiado!');
@@ -418,7 +906,10 @@ export default function FormBuilderView() {
                             Compartilhar
                           </button>
                           <button
-                            onClick={() => selectForm(form)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              selectForm(form);
+                            }}
                             className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 transition-colors"
                           >
                             <Edit3 className="w-3 h-3" />
@@ -428,7 +919,10 @@ export default function FormBuilderView() {
                       )}
                       {!form.isOwner && form.hasAccess && (
                         <button
-                          onClick={() => selectForm(form)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            selectForm(form);
+                          }}
                           className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors"
                         >
                           <Eye className="w-3 h-3" />
@@ -437,7 +931,10 @@ export default function FormBuilderView() {
                       )}
                       {!form.isOwner && !form.hasAccess && (
                         <button
-                          onClick={() => requestAccess(form._id!)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            requestAccess(form._id!);
+                          }}
                           className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-amber-500 text-white text-xs font-medium hover:bg-amber-600 transition-colors"
                         >
                           <Users className="w-3 h-3" />
@@ -526,7 +1023,7 @@ export default function FormBuilderView() {
                     {quickTemplates.map((template, index) => (
                       <button
                         key={index}
-                        onClick={() => addQuestion(template)}
+                        onClick={() => loadTemplate(template)}
                         className="p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left transition-all duration-200 hover:scale-105"
                       >
                         <div className="flex items-center gap-2 mb-1">
@@ -848,6 +1345,8 @@ export default function FormBuilderView() {
             </div>
           </div>
         )}
+
+        {renderDetailsModal()}
       </div>
     </div>
   );

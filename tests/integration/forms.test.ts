@@ -121,6 +121,7 @@ describe('Forms API Integration Tests', () => {
     expect(response.body).toEqual([
       {
         ...mockForm,
+        history: [],
         isOwner: true,
         hasAccess: true,
       },

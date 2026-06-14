@@ -1,3 +1,63 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Otimização de Layout para Dispositivos Móveis na Horizontal (Landscape) */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Oculta o cabeçalho superior móvel para economizar espaço vertical */
+  header.md\:hidden {
+    display: none !important;
+  }
+  
+  /* Remove a sobreposição escurecida de fundo */
+  .fixed.inset-0.bg-black\/40 {
+    display: none !important;
+  }
+
+  /* Garante o posicionamento em linha (sidebar esquerda + conteúdo direita) */
+  .flex-col.md\:flex-row {
+    flex-direction: row !important;
+  }
+
+  /* Transforma a sidebar em uma doca compacta à esquerda */
+  aside {
+    position: relative !important;
+    transform: none !important;
+    width: 5rem !important; /* w-20 */
+    height: 100vh !important;
+    display: flex !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  /* Oculta textos e botões auxiliares da sidebar */
+  aside h1, 
+  aside button.rounded-2xl.bg-slate-900,
+  aside nav button span:not(.text-xl) {
+    display: none !important;
+  }
+
+  /* Centraliza verticalmente os botões de navegação */
+  aside nav {
+    padding: 1rem 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  aside nav button {
+    justify-content: center !important;
+    padding: 1rem !important;
+    width: auto !important;
+  }
+
+  /* Centraliza a letra do logotipo "F" */
+  aside > div:first-child {
+    padding: 1.5rem 0.5rem !important;
+    justify-content: center !important;
+  }
+  
+  /* Ajusta o espaçamento do conteúdo principal para maximizar a área útil */
+  main > div {
+    padding: 1.5rem !important;
+  }
+}
