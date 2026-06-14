@@ -8,7 +8,7 @@ import AuthView from './components/AuthView';
 import { useAuth } from './context/AuthContext.tsx';
 
 const routeTabs = ['builder', 'share', 'responder', 'notifications'] as const;
-type TabType = (typeof routeTabs)[number] | 'share-form';
+type TabType = (typeof routeTabs)[number] | 'share-form' | 'reset-password';
 
 export default function App() {
   const getRoute = () => {
@@ -22,6 +22,10 @@ export default function App() {
       return { tab: 'share-form' as const, shareHash: hash };
     }
     const hash = window.location.hash.replace('#', '');
+    if (hash.startsWith('reset-password')) {
+      const token = hash.split('token=')[1] || '';
+      return { tab: 'reset-password' as const, shareHash: token };
+    }
     return {
       tab: routeTabs.includes(hash as any) ? (hash as (typeof routeTabs)[number]) : 'builder' as const,
       shareHash: null,
@@ -39,6 +43,8 @@ export default function App() {
       if (!shareHash) {
         window.history.replaceState({}, '', `/${activeTab}`);
       }
+    } else if (activeTab === 'reset-password') {
+      // Mantém o hash intacto para não perder o token de redefinição
     } else {
       window.location.hash = activeTab;
     }
@@ -62,6 +68,13 @@ export default function App() {
       }
 
       const hash = window.location.hash.replace('#', '');
+      if (hash.startsWith('reset-password')) {
+        const token = hash.split('token=')[1] || '';
+        setActiveTab('reset-password');
+        setShareHash(token);
+        return;
+      }
+
       if (routeTabs.includes(hash as any)) {
         setActiveTab(hash as (typeof routeTabs)[number]);
         setShareHash(null);
@@ -98,7 +111,7 @@ export default function App() {
   }
 
   if (!user) {
-    return <AuthView />;
+    return <AuthView resetToken={activeTab === 'reset-password' ? (shareHash || '') : ''} />;
   }
 
   return (

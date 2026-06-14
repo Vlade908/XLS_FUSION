@@ -15,7 +15,7 @@ import { upload } from './gridfs';
 import { requireAuth } from './middleware/authMiddleware';
 
 // Controllers
-import { signup, login, me, refresh } from './controllers/authController';
+import { signup, login, me, refresh, forgotPassword, resetPassword } from './controllers/authController';
 import {
   listForms,
   saveForm,
@@ -50,6 +50,8 @@ export function registerRoutes(app: Express) {
   app.post('/api/login', login);
   app.get('/api/me', requireAuth, me);
   app.post('/api/refresh', requireAuth, refresh);
+  app.post('/api/forgot-password', forgotPassword);
+  app.post('/api/reset-password', resetPassword);
 
   // ─────────────────────────────────────────────
   // 3. Formulários (Privados — requer login)

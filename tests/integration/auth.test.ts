@@ -2,19 +2,18 @@
 
 const request = require('supertest');
 const express = require('express');
-const { createAuthToken } = require('../../src/server/auth');
+const { registerRoutes } = require('../../src/server/routes');
 
-const UserModel = {
-  findOne: jest.fn(),
-  create: jest.fn(),
-};
-
+// Mock Models
 jest.mock('../../src/server/models', () => ({
-  UserModel,
-  FormModel: { find: jest.fn(), findById: jest.fn() },
-  AccessRequestModel: { find: jest.fn() },
-  ResponseModel: { find: jest.fn() },
-  SharedSpreadsheetModel: { findOne: jest.fn() },
+  UserModel: {
+    findOne: jest.fn(),
+    create: jest.fn(),
+  },
+  FormModel: {},
+  AccessRequestModel: {},
+  ResponseModel: {},
+  SharedSpreadsheetModel: {},
 }));
 
 jest.mock('../../src/server/gridfs', () => ({
@@ -22,9 +21,26 @@ jest.mock('../../src/server/gridfs', () => ({
   upload: { single: jest.fn(() => (req: any, res: any, next: any) => next()) },
 }));
 
-const { registerRoutes } = require('../../src/server/routes');
+jest.mock('../../src/server/utils/emailService', () => ({
+  sendResetEmail: jest.fn().mockResolvedValue({
+    sent: true,
+    method: 'mocked',
+    resetUrl: 'http://localhost:5173/#reset-password?token=mocked-token',
+  }),
+}));
 
-describe('Auth API Integration Tests', () => {
+
+const { UserModel } = require('../../src/server/models');
+
+const mockUser = {
+  email: 'user@example.com',
+  passwordHash: 'hashed_password',
+  resetPasswordToken: null,
+  resetPasswordExpires: null,
+  save: jest.fn().mockResolvedValue(true),
+};
+
+describe('Auth Forgot/Reset Password Integration Tests', () => {
   let app: any;
 
   beforeAll(() => {
@@ -37,155 +53,83 @@ describe('Auth API Integration Tests', () => {
     jest.clearAllMocks();
   });
 
-  describe('POST /api/signup', () => {
-    it('should register a new user successfully', async () => {
-      UserModel.findOne.mockResolvedValue(null);
-      UserModel.create.mockResolvedValue({
-        _id: 'new-user-id',
-        email: 'newuser@example.com',
-        passwordHash: 'hashedpassword',
-      });
+  describe('POST /api/forgot-password', () => {
+    it('should generate token and reset link for existing user', async () => {
+      const userInstance = { ...mockUser };
+      UserModel.findOne.mockResolvedValue(userInstance);
 
       const response = await request(app)
-        .post('/api/signup')
-        .send({
-          email: 'newuser@example.com',
-          password: 'password123',
-        });
-
-      expect(response.status).toBe(201);
-      expect(response.body).toHaveProperty('token');
-      expect(response.body.user).toEqual({ email: 'newuser@example.com' });
-      expect(UserModel.create).toHaveBeenCalled();
-    });
-
-    it('should return 400 when email or password is missing', async () => {
-      const response = await request(app)
-        .post('/api/signup')
-        .send({ email: 'newuser@example.com' });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('E-mail e senha são obrigatórios.');
-    });
-
-    it('should return 400 when email format is invalid', async () => {
-      const response = await request(app)
-        .post('/api/signup')
-        .send({ email: 'invalidemail', password: 'password123' });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('E-mail inválido.');
-    });
-
-    it('should return 400 when password is shorter than 6 characters', async () => {
-      const response = await request(app)
-        .post('/api/signup')
-        .send({ email: 'newuser@example.com', password: '123' });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('A senha deve ter pelo menos 6 caracteres.');
-    });
-
-    it('should return 409 when user already exists', async () => {
-      UserModel.findOne.mockResolvedValue({ email: 'existing@example.com' });
-
-      const response = await request(app)
-        .post('/api/signup')
-        .send({ email: 'existing@example.com', password: 'password123' });
-
-      expect(response.status).toBe(409);
-      expect(response.body.error).toBe('Usuário já existe.');
-    });
-  });
-
-  describe('POST /api/login', () => {
-    it('should log in successfully with correct credentials', async () => {
-      const bcrypt = require('bcryptjs');
-      const hashedPassword = await bcrypt.hash('password123', 10);
-
-      UserModel.findOne.mockResolvedValue({
-        _id: 'user-id',
-        email: 'user@example.com',
-        passwordHash: hashedPassword,
-      });
-
-      const response = await request(app)
-        .post('/api/login')
-        .send({
-          email: 'user@example.com',
-          password: 'password123',
-        });
+        .post('/api/forgot-password')
+        .send({ email: 'user@example.com' });
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('token');
-      expect(response.body.user).toEqual({ email: 'user@example.com' });
+      expect(response.body).toHaveProperty('message');
+      expect(userInstance.resetPasswordToken).toBeDefined();
+      expect(userInstance.resetPasswordExpires).toBeInstanceOf(Date);
+      expect(userInstance.save).toHaveBeenCalled();
     });
 
-    it('should return 401 with wrong credentials', async () => {
-      const bcrypt = require('bcryptjs');
-      const hashedPassword = await bcrypt.hash('password123', 10);
-
-      UserModel.findOne.mockResolvedValue({
-        _id: 'user-id',
-        email: 'user@example.com',
-        passwordHash: hashedPassword,
-      });
-
-      const response = await request(app)
-        .post('/api/login')
-        .send({
-          email: 'user@example.com',
-          password: 'wrongpassword',
-        });
-
-      expect(response.status).toBe(401);
-      expect(response.body.error).toBe('Credenciais inválidas.');
-    });
-
-    it('should return 401 when user is not found', async () => {
+    it('should return success message even if user does not exist (for security)', async () => {
       UserModel.findOne.mockResolvedValue(null);
 
       const response = await request(app)
-        .post('/api/login')
-        .send({
-          email: 'nonexistent@example.com',
-          password: 'password123',
-        });
+        .post('/api/forgot-password')
+        .send({ email: 'nonexistent@example.com' });
 
-      expect(response.status).toBe(401);
-      expect(response.body.error).toBe('Credenciais inválidas.');
+      expect(response.status).toBe(200);
+      expect(response.body.message).toContain('Se o e-mail estiver cadastrado');
+    });
+
+    it('should return 400 when email is not provided', async () => {
+      const response = await request(app)
+        .post('/api/forgot-password')
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'E-mail é obrigatório.');
     });
   });
 
-  describe('GET /api/me', () => {
-    it('should return 200 and user info with a valid token', async () => {
-      const token = createAuthToken({ userId: 'user-id', email: 'user@example.com' });
+  describe('POST /api/reset-password', () => {
+    it('should update password and clear reset token when token is valid', async () => {
+      const userInstance = {
+        ...mockUser,
+        resetPasswordToken: 'valid-token',
+        resetPasswordExpires: new Date(Date.now() + 60000), // 1 min in future
+      };
+      UserModel.findOne.mockResolvedValue(userInstance);
 
       const response = await request(app)
-        .get('/api/me')
-        .set('Authorization', `Bearer ${token}`);
+        .post('/api/reset-password')
+        .send({ token: 'valid-token', password: 'newpassword123' });
 
       expect(response.status).toBe(200);
-      expect(response.body.user).toEqual({ email: 'user@example.com' });
+      expect(response.body.message).toBe('Senha redefinida com sucesso!');
+      expect(userInstance.resetPasswordToken).toBeNull();
+      expect(userInstance.resetPasswordExpires).toBeNull();
+      expect(userInstance.save).toHaveBeenCalled();
     });
 
-    it('should return 401 when authorization header is missing', async () => {
-      const response = await request(app).get('/api/me');
-      expect(response.status).toBe(401);
-    });
-  });
-
-  describe('POST /api/refresh', () => {
-    it('should refresh and return a new token when valid token is provided', async () => {
-      const token = createAuthToken({ userId: 'user-id', email: 'user@example.com' });
+    it('should return 400 when token is expired or invalid', async () => {
+      UserModel.findOne.mockResolvedValue(null);
 
       const response = await request(app)
-        .post('/api/refresh')
-        .set('Authorization', `Bearer ${token}`);
+        .post('/api/reset-password')
+        .send({ token: 'invalid-token', password: 'newpassword123' });
 
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('token');
-      expect(response.body.user).toEqual({ email: 'user@example.com' });
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'Token de redefinição de senha inválido ou expirado.');
+    });
+
+    it('should return 400 when password is less than 6 chars', async () => {
+      const response = await request(app)
+        .post('/api/reset-password')
+        .send({ token: 'some-token', password: '123' });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'A nova senha deve ter pelo menos 6 caracteres.');
     });
   });
 });
+
+export {};

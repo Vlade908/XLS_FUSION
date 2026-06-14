@@ -18,7 +18,7 @@ export async function verifyPassword(password: string, hash: string) {
 }
 
 export function createAuthToken(payload: AuthPayload) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN as any });
 }
 
 export function verifyAuthToken(token: string) {

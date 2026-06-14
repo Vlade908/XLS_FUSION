@@ -564,6 +564,12 @@ export default function ResponderView() {
                             onFileChange={handleAnswerFileUpload} 
                           />
                         </div>
+                        {offlineError && (
+                          <div className="mt-4 flex items-center gap-2 text-rose-605 bg-rose-50 px-4 py-2.5 rounded-xl border border-rose-100 text-xs font-bold shadow-sm w-full">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            <span className="text-left">{offlineError}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
