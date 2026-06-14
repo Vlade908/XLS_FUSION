@@ -8,7 +8,7 @@ Este documento contém as respostas estruturadas para o **Modelo de Estrutura pa
 
 Nas organizações contemporâneas, a coleta e a consolidação de dados para fins de auditoria, pesquisa e controle de processos frequentemente enfrentam gargalos de eficiência operacional e segurança da informação. Muitas empresas e departamentos dependem de planilhas locais (como arquivos Excel/XLS) enviadas manualmente de forma síncrona ou assíncrona por e-mail ou mensagens. Esse fluxo descentralizado acarreta as seguintes dificuldades críticas:
 *   **Problemas de Versionamento e Integridade**: Perda de controle sobre qual é a versão final da planilha ("auditoria_final_v2_revisada.xlsx"), levando ao retrabalho e erros de consolidação.
-*   **Ausência de Controle de Acesso Granular**: Planilhas enviadas por e-mail não possuem proteção eficaz por usuário. Qualquer destinatário pode visualizar ou alterar campos que não lhe competem, violando políticas de confidencialidade de dados (como LGPD).
+*   **Ausência de Controle de Acesso Granular**: Planilhas enviadas por e-mail não possuem proteção eficaz por usuário. Qualquer destinatário pode visualizar ou alterar campos que não lhe competem, violando políticas de privacidade de dados (como LGPD).
 *   **Falta de Lógica Condicional Dinâmica**: A exibição de perguntas que dependem de respostas anteriores só é possível em planilhas locais por meio de macros VBA. No entanto, macros ativam alertas de segurança nos sistemas operacionais e impedem a execução em dispositivos móveis ou navegadores web tradicionais.
 *   **Dificuldade de Anexação de Evidências**: Exigir que o respondente envie comprovantes (imagens ou PDFs) associados a uma resposta específica da planilha resulta em uma profusão de arquivos soltos que o consolidador precisa correlacionar manualmente.
 
@@ -167,6 +167,7 @@ erDiagram
         string allowedEmails
         string allowedDomains
         boolean manual
+        HistorySchema history
         date createdAt
     }
     ACCESS_REQUEST {
@@ -267,9 +268,9 @@ graph TD
     AuthView["Login / Registro"] -->|Se Autenticado| AppRouting{"Roteamento Frontend"}
     
     AppRouting -->|/#builder| FormBuilder["FormBuilderView"]
+    FormBuilder --> DetailsModal["FormDetailsModal (Geral, Histórico, Respostas)"]
     FormBuilder --> NewForm["Novo Formulário"]
     FormBuilder --> EditForm["Editar Formulário"]
-    FormBuilder --> DashResp["Dashboard de Respostas"]
     
     AppRouting -->|/#responder| Responder["ResponderView"]
     Responder --> Online["Formulários Online"]
@@ -285,15 +286,17 @@ graph TD
 #### 5.3.5 Estratégia de Governança de TI
 A governança de dados e processos de TI é resguardada por:
 1.  **Segurança e Acesso Baseado no Princípio do Menor Privilégio**: O criador do formulário configura restrições específicas na criação (lista de e-mails ou domínios corporativos). E-mails que não correspondem aos critérios são impedidos de visualizar os campos ou enviar respostas pelo backend.
-2.  **Trilha de Auditoria Histórica (Data Lineage)**: O schema `ResponseSchema` contém a matriz `history`. Toda vez que uma resposta é editada, uma cópia das respostas anteriores, o carimbo de data/hora (`updatedAt`) e o autor da mudança (`changedBy`) são armazenados de forma imutável, permitindo auditoria reversa das informações.
+2.  **Trilha de Auditoria Histórica (Data & Form Lineage)**:
+    *   **Data Lineage (Histórico de Respostas)**: O schema `ResponseSchema` contém a matriz `history`. Toda vez que uma resposta é editada (seja em rotas privadas ou públicas), o snapshot completo das respostas anteriores, o carimbo de data/hora (`updatedAt`) e o autor da mudança (`changedBy`) são adicionados ao histórico de forma imutável, permitindo auditoria reversa de quem e quando os dados foram alterados.
+    *   **Form Lineage (Histórico do Formulário)**: O schema `FormSchema` contém a matriz `history`. Toda atualização estrutural do formulário calcula o diff das modificações (título, descrição, permissões ou perguntas adicionadas, removidas ou editadas) e armazena os valores anteriores ("De/Para") de forma retroativa.
 3.  **Segurança no Tráfego e Repouso**: Senhas criptografadas no banco por *bcrypt* com fator de custo adaptável. Comunicação restrita via cabeçalho HTTP seguro *Helmet* (prevenção de clickjacking, XSS e injeções de scripts).
 4.  **Organização Arquitetural MVC**: Isolamento completo entre a definição de rotas (`routes.ts`), lógica de negócios nos controladores (`controllers/`) e entidades do banco (`models/`), facilitando a manutenção e a auditoria de código por equipes de TI.
 
 #### 5.3.6 Teste de Software desenvolvido no Projeto
-A plataforma possui uma suíte completa com **25 testes automatizados** passando com sucesso, divididos em três camadas:
+A plataforma possui uma suíte completa com **38 testes automatizados** passando com sucesso, divididos em três camadas:
 1.  **Testes Unitários (Jest + React Testing Library)**: Validam o comportamento dos componentes visuais isolados. Exemplo: Testes no componente `FileUpload.test.tsx` que asseguram que a área de arraste e solte (*drag and drop*) e a remoção de arquivos funcionam corretamente.
 2.  **Testes de Integração (Jest + Supertest)**: Validam as rotas HTTP do Express sem necessidade de inicializar o servidor de rede.
-    *   *Resultados*: Sucesso nos testes de CRUD de formulários (`POST /api/forms`, `GET /api/forms`, `GET /api/forms/:id`), no histórico de logs de respostas (`POST /api/forms/:id/response`), no upload higienizado de anexos (`POST /api/upload-anexo` com remoção de caracteres especiais no nome do respondente), e no login/verificação de sessão (`GET /api/me`, `POST /api/refresh`).
+    *   *Resultados*: Sucesso nos testes de CRUD de formulários (`POST /api/forms`, `GET /api/forms`, `GET /api/forms/:id`), no histórico de logs de respostas e auditoria (`POST /api/forms/:id/response`), no upload higienizado de anexos (`POST /api/upload-anexo` com remoção de caracteres especiais no nome do respondente), e no login/verificação de sessão (`GET /api/me`, `POST /api/refresh`).
 3.  **Testes End-to-End (Playwright)**: Simulam o fluxo real do usuário em navegadores virtuais (Chromium, Firefox, WebKit). Cobrem desde a criação do formulário, fluxo de permissões, importação da planilha offline, respostas às etapas do assistente, até a exportação final do arquivo formatado.
 
 #### 5.3.7 Topologia da Rede
@@ -322,7 +325,7 @@ graph LR
     NodeAPI -->|Conexão Segura Driver\nmongodb+srv://\nPorta 27017| MongoDBCluster
 ```
 
-*   **Escolha e Justificativa**: A topologia utiliza o modelo SaaS/PaaS distribuído. O tráfego de entrada dos clientes é criptografado via HTTPS (TLS 1.3) gerenciado por um balanceador de carga que realiza o proxy reverso para o contêiner de backend (Node.js API). A comunicação entre a API e o banco de dados MongoDB Atlas é isolada e protegida por listas de controle de acesso (IP Whitelisting) e connection strings criptografadas. Isso dispensa a necessidade de manter servidores locais físicos complexos e garante alta disponibilidade inerente às réplicas em nuvem do MongoDB Atlas.
+*   **Escolha e Justificativa**: A topologia utiliza o modelo SaaS/PaaS distribuído. O tráfego de entrada dos clientes é criptografado via HTTPS (TLS 1.3) gerenciado por um balanceador de carga que realiza o proxy reverso para o contêiner de backend (Node.js API). A comunicação entre a API e o banco de dados MongoDB Atlas é isolada e protegida por locais de rede de acesso e connection strings criptografadas. Isso dispensa a necessidade de manter servidores locais físicos complexos e garante alta disponibilidade inerente às réplicas em nuvem do MongoDB Atlas.
 
 ---
 
