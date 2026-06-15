@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { playNotificationSound } from './utils/sound';
 import ResponderView from './views/ResponderView';
 import FormBuilderView from './views/FormBuilderView';
 import NotificationsView from './views/NotificationsView';
@@ -35,7 +36,8 @@ export default function App() {
   const initialRoute = getRoute();
   const [activeTab, setActiveTab] = useState<TabType>(initialRoute.tab);
   const [shareHash, setShareHash] = useState<string | null>(initialRoute.shareHash);
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, authFetch } = useAuth();
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // 2. Efeito para atualizar a URL sempre que a aba mudar
@@ -93,6 +95,43 @@ export default function App() {
     };
   }, [activeTab]);
 
+  // Poll unread notifications count
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+
+    const fetchUnreadCount = async (shouldPlaySound = true) => {
+      try {
+        const res = await authFetch('/api/notifications/unread-count');
+        if (res.ok) {
+          const data = await res.json();
+          const newCount = typeof data.count === 'number' ? data.count : 0;
+          
+          setUnreadCount((prev) => {
+            if (shouldPlaySound && newCount > prev) {
+              playNotificationSound();
+            }
+            return newCount;
+          });
+        }
+      } catch (err) {
+        console.error('Erro ao buscar contagem de notificações não lidas:', err);
+      }
+    };
+
+    // Initial load (don't play sound to avoid noise on page load/refresh)
+    fetchUnreadCount(false);
+
+    // Poll every 10 seconds
+    const interval = setInterval(() => {
+      fetchUnreadCount(true);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [user, authFetch]);
+
   const isImmersive = false;
 
   if (activeTab === 'share') {
@@ -125,12 +164,15 @@ export default function App() {
         </div>
         <button 
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors relative"
           aria-label="Menu"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
+          )}
         </button>
       </header>
 
@@ -170,11 +212,18 @@ export default function App() {
                 setActiveTab(tab.id as any);
                 setIsMobileMenuOpen(false); // Close menu on select
               }}
-              className={`w-full flex items-center transition-all duration-500 rounded-2xl ${
+              className={`w-full flex items-center transition-all duration-500 rounded-2xl relative ${
                 activeTab === tab.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50'
               } ${isImmersive ? 'p-4 justify-center' : 'p-4 gap-4'}`}
             >
-              <span className="text-xl">{tab.icon}</span>
+              <div className="relative flex items-center justify-center">
+                <span className="text-xl">{tab.icon}</span>
+                {tab.id === 'notifications' && unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white ring-2 ring-white animate-bounce">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
               {!isImmersive && <span className="font-bold text-[11px] uppercase tracking-widest">{tab.label}</span>}
             </button>
           ))}
@@ -185,7 +234,9 @@ export default function App() {
         <div className={isImmersive ? "" : "p-4 sm:p-6 md:p-10"}>
           {activeTab === 'builder' && <FormBuilderView />}
           {activeTab === 'responder' && <ResponderView />}
-          {activeTab === 'notifications' && <NotificationsView />}
+          {activeTab === 'notifications' && (
+            <NotificationsView onClearUnread={() => setUnreadCount(0)} />
+          )}
         </div>
       </main>
     </div>

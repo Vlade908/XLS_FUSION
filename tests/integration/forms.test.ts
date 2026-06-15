@@ -27,12 +27,27 @@ const ResponseModel = {
   create: jest.fn(),
 };
 
+const AccessRequestModel = {
+  find: jest.fn(),
+  findOne: jest.fn(),
+  findById: jest.fn(),
+  create: jest.fn(),
+};
+
+const NotificationModel = {
+  create: jest.fn(),
+  find: jest.fn(),
+  countDocuments: jest.fn(),
+  updateMany: jest.fn(),
+};
+
 jest.mock('../../src/server/models', () => ({
   FormModel,
-  AccessRequestModel: { find: jest.fn(), findOne: jest.fn(), findById: jest.fn() },
+  AccessRequestModel,
   SharedSpreadsheetModel: { findOne: jest.fn() },
   UserModel: { findOne: jest.fn() },
   ResponseModel,
+  NotificationModel,
 }));
 
 jest.mock('../../src/server/gridfs', () => ({
@@ -263,6 +278,247 @@ describe('Forms API Integration Tests', () => {
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(403);
+    });
+  });
+
+  describe('Access Requests', () => {
+    describe('POST /api/forms/:formId/request-access', () => {
+      it('should request access successfully if not already requested or allowed', async () => {
+        const restrictedForm = {
+          ...mockForm,
+          ownerEmail: 'other@example.com',
+          allowedEmails: ['allowed@example.com'],
+          allowedDomains: [],
+        };
+        FormModel.findById.mockResolvedValue(restrictedForm);
+        AccessRequestModel.findOne.mockResolvedValue(null);
+        AccessRequestModel.create.mockResolvedValue({
+          _id: 'req-1',
+          formId: 'form-1',
+          requesterEmail: 'test@example.com',
+          status: 'pending',
+          message: 'Preciso de acesso.',
+        });
+
+        const response = await request(app)
+          .post('/api/forms/form-1/request-access')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ message: 'Preciso de acesso.' });
+
+        expect(response.status).toBe(201);
+        expect(response.body.message).toBe('Pedido de acesso criado.');
+        expect(AccessRequestModel.create).toHaveBeenCalledWith({
+          formId: 'form-1',
+          requesterEmail: 'test@example.com',
+          message: 'Preciso de acesso.',
+        });
+      });
+
+      it('should return 409 if access request is already pending', async () => {
+        const restrictedForm = {
+          ...mockForm,
+          ownerEmail: 'other@example.com',
+          allowedEmails: [],
+          allowedDomains: [],
+        };
+        FormModel.findById.mockResolvedValue(restrictedForm);
+        AccessRequestModel.findOne.mockResolvedValue({ _id: 'req-1', status: 'pending' });
+
+        const response = await request(app)
+          .post('/api/forms/form-1/request-access')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ message: 'Preciso de acesso.' });
+
+        expect(response.status).toBe(409);
+        expect(response.body.error).toBe('Já existe um pedido de acesso pendente.');
+      });
+    });
+
+    describe('GET /api/access-requests', () => {
+      it('should list pending access requests for forms owned by the user', async () => {
+        FormModel.find.mockImplementation(() => ({
+          select: jest.fn().mockImplementation(() => ({
+            lean: jest.fn().mockResolvedValue([{ _id: 'form-1', name: 'formulario_a' }]),
+          })),
+        }));
+
+        AccessRequestModel.find.mockImplementation(() => ({
+          lean: jest.fn().mockResolvedValue([
+            {
+              _id: 'req-1',
+              formId: 'form-1',
+              requesterEmail: 'requester@example.com',
+              status: 'pending',
+              message: 'Gostaria de responder.',
+              createdAt: '2026-06-15T00:00:00Z',
+            },
+          ]),
+        }));
+
+        const response = await request(app)
+          .get('/api/access-requests')
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.length).toBe(1);
+        expect(response.body[0]).toHaveProperty('formName', 'formulario_a');
+        expect(response.body[0]).toHaveProperty('requesterEmail', 'requester@example.com');
+      });
+    });
+
+    describe('POST /api/forms/:formId/requests/:requestId/:action', () => {
+      it('should approve access request and add user email to allowedEmails', async () => {
+        const existingForm = {
+          ...mockForm,
+          ownerEmail: 'test@example.com',
+          allowedEmails: [] as string[],
+          save: jest.fn().mockResolvedValue(true),
+        };
+        FormModel.findById.mockResolvedValue(existingForm);
+
+        const mockRequest = {
+          _id: 'req-1',
+          formId: 'form-1',
+          requesterEmail: 'requester@example.com',
+          status: 'pending',
+          save: jest.fn().mockResolvedValue(true),
+        };
+        AccessRequestModel.findById.mockResolvedValue(mockRequest);
+
+        const response = await request(app)
+          .post('/api/forms/form-1/requests/req-1/approve')
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.message).toBe('Pedido aprovado com sucesso.');
+        expect(mockRequest.status).toBe('approved');
+        expect(existingForm.allowedEmails).toContain('requester@example.com');
+        expect(mockRequest.save).toHaveBeenCalled();
+        expect(existingForm.save).toHaveBeenCalled();
+      });
+
+      it('should deny access request and not add user email to allowedEmails', async () => {
+        const existingForm = {
+          ...mockForm,
+          ownerEmail: 'test@example.com',
+          allowedEmails: [] as string[],
+          save: jest.fn().mockResolvedValue(true),
+        };
+        FormModel.findById.mockResolvedValue(existingForm);
+
+        const mockRequest = {
+          _id: 'req-1',
+          formId: 'form-1',
+          requesterEmail: 'requester@example.com',
+          status: 'pending',
+          save: jest.fn().mockResolvedValue(true),
+        };
+        AccessRequestModel.findById.mockResolvedValue(mockRequest);
+
+        const response = await request(app)
+          .post('/api/forms/form-1/requests/req-1/deny')
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.message).toBe('Pedido negado com sucesso.');
+        expect(mockRequest.status).toBe('denied');
+        expect(existingForm.allowedEmails).not.toContain('requester@example.com');
+        expect(mockRequest.save).toHaveBeenCalled();
+        expect(existingForm.save).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('Public Access Requests', () => {
+    describe('POST /api/public-forms/:id/request-access', () => {
+      it('should request access publicly successfully', async () => {
+        const restrictedForm = {
+          ...mockForm,
+          ownerEmail: 'owner@example.com',
+          allowedEmails: [],
+          allowedDomains: [],
+        };
+        FormModel.findById.mockResolvedValue(restrictedForm);
+        AccessRequestModel.findOne.mockResolvedValue(null);
+        AccessRequestModel.create.mockResolvedValue({
+          _id: 'req-2',
+          formId: 'form-1',
+          requesterEmail: 'public-user@example.com',
+          status: 'pending',
+          message: 'Solicitação via link público.',
+        });
+
+        const response = await request(app)
+          .post('/api/public-forms/form-1/request-access')
+          .send({ requesterEmail: 'public-user@example.com', message: 'Solicitação via link público.' });
+
+        expect(response.status).toBe(201);
+        expect(response.body.message).toBe('Solicitação de acesso criada.');
+        expect(AccessRequestModel.create).toHaveBeenCalledWith({
+          formId: 'form-1',
+          requesterEmail: 'public-user@example.com',
+          message: 'Solicitação via link público.',
+        });
+      });
+    });
+  });
+
+  describe('Notifications API', () => {
+    describe('GET /api/notifications', () => {
+      it('should list notifications for the logged in user', async () => {
+        NotificationModel.find.mockImplementation(() => ({
+          sort: jest.fn().mockImplementation(() => ({
+            limit: jest.fn().mockImplementation(() => ({
+              lean: jest.fn().mockResolvedValue([
+                {
+                  _id: 'notif-1',
+                  recipientEmail: 'test@example.com',
+                  type: 'form_response',
+                  title: 'Formulário Respondido',
+                  message: 'user@example.com respondeu...',
+                  formId: 'form-1',
+                  formName: 'Form 1',
+                  read: false,
+                },
+              ]),
+            })),
+          })),
+        }));
+
+        const response = await request(app)
+          .get('/api/notifications')
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.length).toBe(1);
+        expect(response.body[0].title).toBe('Formulário Respondido');
+      });
+    });
+
+    describe('GET /api/notifications/unread-count', () => {
+      it('should return unread count for the logged in user', async () => {
+        NotificationModel.countDocuments.mockResolvedValue(3);
+
+        const response = await request(app)
+          .get('/api/notifications/unread-count')
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.count).toBe(3);
+      });
+    });
+
+    describe('POST /api/notifications/mark-read', () => {
+      it('should mark all notifications as read', async () => {
+        NotificationModel.updateMany.mockResolvedValue({ acknowledged: true, modifiedCount: 2 });
+
+        const response = await request(app)
+          .post('/api/notifications/mark-read')
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+      });
     });
   });
 });

@@ -51,6 +51,10 @@ export default function WebResponderView({ formId }: { formId: string }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  // States for public access request
+  const [sendingRequest, setSendingRequest] = useState(false);
+  const [requestSuccess, setRequestSuccess] = useState(false);
+
   // Responsive UI states
   const [isMobile, setIsMobile] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
@@ -120,6 +124,30 @@ export default function WebResponderView({ formId }: { formId: string }) {
         console.error('Erro ao buscar respostas anteriores:', err);
         setIsEmailConfirmed(true); // Proceed anyway
       });
+  };
+
+  const handleRequestAccess = async () => {
+    if (!email.trim() || !email.includes('@')) return;
+    setSendingRequest(true);
+    setError('');
+    setRequestSuccess(false);
+    try {
+      const res = await fetch(`/api/public-forms/${formId}/request-access`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requesterEmail: email,
+          message: 'Solicitação de acesso para responder ao formulário via link público.',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao solicitar acesso.');
+      setRequestSuccess(true);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSendingRequest(false);
+    }
   };
 
   const isQuestionVisible = (q: Question) => {
@@ -445,7 +473,37 @@ export default function WebResponderView({ formId }: { formId: string }) {
               </div>
             </div>
             
-            {error && <p className="text-sm text-rose-500 font-medium text-center">{error}</p>}
+            {error && (
+              <div className="space-y-3">
+                <p className="text-sm text-rose-500 font-medium text-center">{error}</p>
+                {error.includes('permissão') && (
+                  <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl text-center space-y-3 animate-in zoom-in">
+                    <p className="text-xs text-indigo-900 font-semibold leading-relaxed">
+                      Deseja solicitar permissão de acesso ao proprietário do formulário para este e-mail?
+                    </p>
+                    <button
+                      onClick={handleRequestAccess}
+                      disabled={sendingRequest}
+                      className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {sendingRequest ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Solicitando...
+                        </>
+                      ) : (
+                        'Solicitar Permissão'
+                      )}
+                    </button>
+                    {requestSuccess && (
+                      <p className="text-[10px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 p-2 rounded-lg">
+                        ✓ Solicitação de acesso enviada com sucesso! O proprietário será notificado.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             
             <button 
               onClick={handleEmailConfirm}

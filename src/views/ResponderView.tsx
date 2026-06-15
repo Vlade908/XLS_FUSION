@@ -97,6 +97,11 @@ export default function ResponderView() {
   const [onlineError, setOnlineError] = useState("");
   const [onlineSuccess, setOnlineSuccess] = useState(false);
 
+  // --- Estados de Solicitação de Acesso ---
+  const [accessRequestMessage, setAccessRequestMessage] = useState("Preciso de acesso ao formulário.");
+  const [sendingAccessRequest, setSendingAccessRequest] = useState(false);
+  const [accessRequestSuccess, setAccessRequestSuccess] = useState(false);
+
   // --- Estados do Modo Offline (Excel Legado) ---
   const [answerFile, setAnswerFile] = useState<File | null>(null);
   const [employeeMapping, setEmployeeMapping] = useState<any[]>([]);
@@ -164,6 +169,33 @@ export default function ResponderView() {
       setOnlineError(err.message);
     } finally {
       setLoadingForm(false);
+    }
+  };
+
+  const handleRequestAccess = async () => {
+    if (!formCode.trim()) return;
+    setSendingAccessRequest(true);
+    setAccessRequestSuccess(false);
+    try {
+      const response = await authFetch(`/api/forms/${formCode.trim()}/request-access`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: accessRequestMessage }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Falha ao solicitar acesso.");
+      
+      setAccessRequestSuccess(true);
+      setAccessRequestMessage("Preciso de acesso ao formulário.");
+      
+      setTimeout(() => {
+        setAccessRequestSuccess(false);
+        setOnlineError("");
+      }, 5000);
+    } catch (err: any) {
+      setOnlineError(err.message);
+    } finally {
+      setSendingAccessRequest(false);
     }
   };
 
@@ -916,9 +948,49 @@ export default function ResponderView() {
                       </button>
                     </div>
                     {onlineError && (
-                      <div className="mt-4 flex items-center gap-2 text-rose-600 bg-rose-50 px-4 py-2.5 rounded-xl border border-rose-100 text-xs font-bold shadow-sm">
-                        <AlertCircle className="w-4 h-4" />
-                        {onlineError}
+                      <div className="mt-4 flex flex-col gap-3">
+                        <div className="flex items-center gap-2 text-rose-600 bg-rose-50 px-4 py-2.5 rounded-xl border border-rose-100 text-xs font-bold shadow-sm">
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                          <span className="text-left">{onlineError}</span>
+                        </div>
+                        
+                        {(onlineError.includes("permissão") || onlineError.includes("autorizado") || onlineError.includes("403")) && (
+                          <div className="p-5 bg-indigo-50/50 border border-indigo-100 rounded-2xl space-y-4 animate-in slide-in-from-top-2">
+                            <p className="text-xs text-indigo-950 font-bold leading-relaxed">
+                              Este formulário possui restrições de e-mail ou domínio. Deseja enviar uma solicitação de acesso para o proprietário?
+                            </p>
+                            
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <input
+                                type="text"
+                                value={accessRequestMessage}
+                                onChange={(e) => setAccessRequestMessage(e.target.value)}
+                                placeholder="Mensagem para o proprietário (ex: Preciso responder ao formulário)..."
+                                className="flex-grow px-3.5 py-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                              />
+                              <button
+                                onClick={handleRequestAccess}
+                                disabled={sendingAccessRequest}
+                                className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black uppercase text-[10px] tracking-wider transition-all disabled:opacity-50 active:scale-95 flex items-center justify-center gap-1.5"
+                              >
+                                {sendingAccessRequest ? (
+                                  <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    Enviando...
+                                  </>
+                                ) : (
+                                  'Solicitar Acesso'
+                                )}
+                              </button>
+                            </div>
+                            
+                            {accessRequestSuccess && (
+                              <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 p-2.5 rounded-xl animate-in zoom-in">
+                                <span>✓</span> Solicitação de acesso enviada com sucesso! O proprietário será notificado.
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

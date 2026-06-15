@@ -90,6 +90,13 @@ export default function FormBuilderView() {
   const [loadingResponses, setLoadingResponses] = useState(false);
   const [selectedRespondent, setSelectedRespondent] = useState<any | null>(null);
   const [selectedSnapshotIndex, setSelectedSnapshotIndex] = useState<number | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
+  };
 
   const loadFormResponses = async (formId: string) => {
     setLoadingResponses(true);
@@ -505,6 +512,25 @@ export default function FormBuilderView() {
                       <span className="text-slate-400">Proprietário:</span>
                       <p className="text-slate-800 font-bold">{selectedDetailsForm.ownerEmail}</p>
                     </div>
+                    <div>
+                      <span className="text-slate-400">Código do Formulário:</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <code className="bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-mono font-bold text-xs select-all">
+                          {selectedDetailsForm._id}
+                        </code>
+                        <button
+                          onClick={() => handleCopyId(selectedDetailsForm._id || '')}
+                          className="p-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center shadow-sm"
+                          title="Copiar Código"
+                        >
+                          {copiedId === selectedDetailsForm._id ? (
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600 animate-in zoom-in-50 duration-150" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
                     {selectedDetailsForm.allowedEmails.length > 0 && (
                       <div>
                         <span className="text-slate-400">E-mails autorizados:</span>
@@ -867,7 +893,26 @@ export default function FormBuilderView() {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <h3 className="font-bold text-slate-900 mb-1">{form.name}</h3>
-                      <p className="text-sm text-slate-600 mb-2">{form.title || 'Sem título'}</p>
+                      <p className="text-sm text-slate-600 mb-1">{form.title || 'Sem título'}</p>
+                      
+                      <div 
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 mb-2 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-md text-[9px] font-mono text-slate-500 hover:bg-slate-100 transition-colors cursor-default"
+                      >
+                        <span className="font-bold uppercase tracking-tight opacity-75">ID:</span>
+                        <span className="font-semibold">{form._id}</span>
+                        <button
+                          onClick={() => handleCopyId(form._id || '')}
+                          className="p-0.5 hover:bg-slate-200 text-slate-450 hover:text-slate-600 rounded transition-colors flex items-center justify-center"
+                          title="Copiar Código"
+                        >
+                          {copiedId === form._id ? (
+                            <CheckCircle className="w-2.5 h-2.5 text-emerald-600 animate-in zoom-in-50 duration-150" />
+                          ) : (
+                            <Copy className="w-2.5 h-2.5" />
+                          )}
+                        </button>
+                      </div>
                       <div className="flex items-center gap-2">
                         {form.ownerEmail === email ? (
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">

@@ -28,7 +28,12 @@ import {
   saveUserResponse,
   getFormResponsesDashboard,
 } from './controllers/formController';
-import { getPublicForm, submitPublicResponse, getPublicResponse } from './controllers/publicFormController';
+import { getPublicForm, submitPublicResponse, getPublicResponse, requestAccessPublic } from './controllers/publicFormController';
+import {
+  listNotifications,
+  getUnreadNotificationsCount,
+  markNotificationsAsRead,
+} from './controllers/notificationController';
 import {
   uploadAnexo,
   uploadPlanilha,
@@ -70,6 +75,7 @@ export function registerRoutes(app: Express) {
   app.get('/api/public-forms/:id', getPublicForm);
   app.get('/api/public-forms/:id/responses', getPublicResponse);
   app.post('/api/public-forms/:id/responses', submitPublicResponse);
+  app.post('/api/public-forms/:id/request-access', requestAccessPublic);
 
   // ─────────────────────────────────────────────
   // 5. Pedidos de Acesso
@@ -77,6 +83,13 @@ export function registerRoutes(app: Express) {
   app.post('/api/forms/:formId/request-access', requireAuth, requestAccess);
   app.get('/api/access-requests', requireAuth, listAccessRequests);
   app.post('/api/forms/:formId/requests/:requestId/:action', requireAuth, handleAccessRequest);
+
+  // ─────────────────────────────────────────────
+  // 5.1 Notificações do Sistema
+  // ─────────────────────────────────────────────
+  app.get('/api/notifications', requireAuth, listNotifications);
+  app.get('/api/notifications/unread-count', requireAuth, getUnreadNotificationsCount);
+  app.post('/api/notifications/mark-read', requireAuth, markNotificationsAsRead);
 
   // ─────────────────────────────────────────────
   // 6. Upload de Arquivos (GridFS)

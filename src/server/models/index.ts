@@ -94,8 +94,23 @@ const SharedSpreadsheetSchema = new Schema(
   { timestamps: true }
 );
 
+const NotificationSchema = new Schema(
+  {
+    recipientEmail: { type: String, required: true, lowercase: true, trim: true },
+    type: { type: String, enum: ['access_request', 'form_response'], required: true },
+    title: { type: String, required: true },
+    message: { type: String, required: true },
+    formId: { type: Schema.Types.ObjectId, ref: 'Form', required: true },
+    formName: { type: String, required: true },
+    relatedId: { type: Schema.Types.ObjectId, required: true },
+    read: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
 export const UserModel = mongoose.models.User || model('User', UserSchema);
 export const FormModel = mongoose.models.Form || model('Form', FormSchema);
 export const AccessRequestModel = mongoose.models.AccessRequest || model('AccessRequest', AccessRequestSchema);
 export const ResponseModel = mongoose.models.Response || model('Response', ResponseSchema);
 export const SharedSpreadsheetModel = mongoose.models.SharedSpreadsheet || model('SharedSpreadsheet', SharedSpreadsheetSchema);
+export const NotificationModel = mongoose.models.Notification || model('Notification', NotificationSchema);

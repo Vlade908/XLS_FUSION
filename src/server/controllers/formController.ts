@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { FormModel, AccessRequestModel, ResponseModel } from '../models/index';
+import { FormModel, AccessRequestModel, ResponseModel, NotificationModel } from '../models/index';
 
 const allowedQuestionTypes = ['simnao', 'alternativa', 'respostaescrita', 'data', 'link', 'check', 'arquivo'] as const;
 type QuestionType = (typeof allowedQuestionTypes)[number];
@@ -248,6 +248,21 @@ export const requestAccess = async (req: Request, res: Response) => {
       message: String(message || ''),
     });
 
+    try {
+      await NotificationModel.create({
+        recipientEmail: form.ownerEmail.toLowerCase(),
+        type: 'access_request',
+        title: 'Nova solicitação de acesso',
+        message: `${normalizedEmail} solicitou acesso ao formulário "${form.name}".`,
+        formId: form._id,
+        formName: form.name,
+        relatedId: accessRequest._id,
+        read: false,
+      });
+    } catch (notifErr: any) {
+      console.error('⚠️ [NOTIFICATION ERROR]: Failed to create notification for private access request:', notifErr.message);
+    }
+
     res.status(201).json({ message: 'Pedido de acesso criado.', request: accessRequest });
   } catch (err: any) {
     console.error('❌ [ACCESS REQUEST ERROR]:', err.message);
@@ -268,7 +283,7 @@ export const listAccessRequests = async (req: Request, res: Response) => {
     }).lean();
 
     const requestsWithForm = requests.map((request) => {
-      const form = forms.find((f) => f._id.equals(request.formId));
+      const form = forms.find((f) => String(f._id) === String(request.formId));
       return {
         _id: request._id,
         formId: request.formId,
@@ -464,6 +479,23 @@ export const saveUserResponse = async (req: Request, res: Response) => {
       }
       existing.submitted = true;
       await existing.save();
+    }
+
+    if (form.ownerEmail.toLowerCase() !== email.toLowerCase()) {
+      try {
+        await NotificationModel.create({
+          recipientEmail: form.ownerEmail.toLowerCase(),
+          type: 'form_response',
+          title: 'Formulário Respondido',
+          message: `${email} respondeu ao formulário "${form.name}".`,
+          formId: form._id,
+          formName: form.name,
+          relatedId: existing._id,
+          read: false,
+        });
+      } catch (notifErr: any) {
+        console.error('⚠️ [NOTIFICATION ERROR]: Failed to create notification for private response:', notifErr.message);
+      }
     }
 
     res.status(200).json({ message: 'Resposta salva com sucesso!', response: existing });
