@@ -1,6 +1,187 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --bg-app: #F8FAFC;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --border-color: rgba(226, 232, 240, 0.65);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-card-bg: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --glass-card-border: rgba(255, 255, 255, 0.25);
+  --grid-color: rgba(99, 102, 241, 0.04);
+}
+
+.dark {
+  --bg-app: #030712;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border-color: rgba(30, 41, 59, 0.8);
+  --glass-bg: rgba(10, 15, 40, 0.85);
+  --glass-card-bg: rgba(15, 23, 52, 0.70);
+  --glass-border: rgba(99, 102, 241, 0.15);
+  --glass-card-border: rgba(99, 102, 241, 0.10);
+  --grid-color: rgba(99, 102, 241, 0.05);
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.font-outfit {
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Glassmorphism & Grid Effects */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.glass-card {
+  background: var(--glass-card-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-card-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.03);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.grid-bg {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+  transition: background-image 0.3s ease;
+}
+
+
+/* =============================================================
+   DARK MODE — Global fallback overrides
+   Covers components using bg-white/slate-50 without dark: variants
+   ============================================================= */
+
+/* Grid background: explicit dark background-color */
+.dark .grid-bg {
+  background-color: #030712;
+}
+
+/* ── Background overrides ──────────────────────────────────── */
+
+/* Pure white panels → deep navy */
+.dark .bg-white {
+  background-color: #0f172a !important; /* slate-900 */
+}
+
+/* Transparent whites */
+.dark .bg-white\/95 { background-color: rgba(15,23,42,0.95) !important; }
+.dark .bg-white\/80 { background-color: rgba(15,23,42,0.88) !important; }
+.dark .bg-white\/70 { background-color: rgba(15,23,42,0.80) !important; }
+.dark .bg-white\/60 { background-color: rgba(15,23,42,0.75) !important; }
+.dark .bg-white\/50 { background-color: rgba(15,23,42,0.65) !important; }
+.dark .bg-white\/40 { background-color: rgba(15,23,42,0.55) !important; }
+
+/* Light grey panels */
+.dark .bg-slate-50  { background-color: #0a0f1e !important; } /* deeper than 950 */
+.dark .bg-slate-100 { background-color: #0f172a !important; } /* slate-900 */
+.dark .bg-slate-200 { background-color: #1e293b !important; } /* slate-800 */
+
+/* Transparent slate */
+.dark .bg-slate-50\/60  { background-color: rgba(10,15,30,0.7) !important; }
+.dark .bg-slate-950\/40 { background-color: rgba(2,8,23,0.55) !important; }
+
+/* Amber/warning: dim for dark */
+.dark .bg-amber-50  { background-color: rgba(120,53,15,0.15) !important; }
+.dark .bg-rose-50   { background-color: rgba(136,19,55,0.15) !important; }
+.dark .bg-emerald-50{ background-color: rgba(4,78,55,0.15) !important; }
+.dark .bg-indigo-50 { background-color: rgba(49,46,129,0.15) !important; }
+
+/* ── Border overrides ──────────────────────────────────────── */
+.dark .border-slate-100 { border-color: rgba(30,41,59,0.45) !important; }
+.dark .border-slate-200 { border-color: #1e293b !important; }          /* slate-800 */
+.dark .border-slate-300 { border-color: #334155 !important; }          /* slate-700 */
+
+/* ── Text color fixes (unprotected text-slate-* become readable) ─
+   Fixes near-black text on dark backgrounds (contrast <2:1).
+   Elements with explicit dark:text-* variants will match the same
+   light color anyway, so no visual conflict.
+   ──────────────────────────────────────────────────────────────── */
+.dark .text-slate-950 { color: #f8fafc !important; }   /* → white */
+.dark .text-slate-900 { color: #f1f5f9 !important; }   /* → slate-100 */
+.dark .text-slate-800 { color: #e2e8f0 !important; }   /* → slate-200 */
+.dark .text-slate-750 { color: #d4dfef !important; }   /* → ~slate-250 */
+.dark .text-slate-700 { color: #cbd5e1 !important; }   /* → slate-300 */
+.dark .text-slate-650 { color: #b8c9d9 !important; }   /* → ~slate-350 */
+.dark .text-slate-600 { color: #94a3b8 !important; }   /* → slate-400 */
+/* slate-500 (rgb 100 116 139) keeps ~3.8:1 contrast on dark — OK */
+/* slate-400 and below are already light enough — no override needed */
+
+
+/* ── Hover overrides ───────────────────────────────────────── */
+.dark .hover\:bg-slate-50:hover  { background-color: #0f172a !important; }
+.dark .hover\:bg-slate-100:hover { background-color: #1e293b !important; }
+.dark .hover\:bg-white:hover     { background-color: #1e293b !important; }
+
+/* ── Form elements (inputs, selects, textareas) ────────────── */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="submit"]):not([type="button"]),
+.dark select,
+.dark textarea {
+  background-color: #030712 !important;
+  border-color: #1e293b !important;
+  color: #e2e8f0 !important;
+  caret-color: #818cf8;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #475569 !important;
+}
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
+  outline: none !important;
+}
+
+/* ── Modal containers ──────────────────────────────────────── */
+.dark .form-details-modal-container {
+  background-color: #0a0f1e !important;
+  border-color: #1e293b !important;
+}
+.dark .form-details-modal-tabs {
+  background-color: rgba(3,7,18,0.6) !important;
+  border-color: #1e293b !important;
+}
+
+/* ── Glassmorphism panels in dark ─────────────────────────── */
+.dark .glass-panel {
+  border-color: rgba(99,102,241,0.12) !important;
+  box-shadow: 0 0 0 1px rgba(99,102,241,0.08), 0 8px 32px rgba(0,0,0,0.4) !important;
+}
+
+/* ── Scrollbar dark ────────────────────────────────────────── */
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.02);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(99,102,241,0.25);
+  border-radius: 4px;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(99,102,241,0.45);
+}
+
 
 /* Otimização de Layout para Dispositivos Móveis na Horizontal (Landscape) */
 @media (max-height: 500px) and (orientation: landscape) {

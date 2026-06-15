@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 export interface AuthUser {
   email: string;
+  name?: string;
+  avatarUrl?: string;
 }
 
 interface AuthContextData {
@@ -9,9 +11,10 @@ interface AuthContextData {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => void;
   authFetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+  updateUser: (updatedFields: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextData | undefined>(undefined);
@@ -51,10 +54,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const lastActivityRef = useRef<number>(Date.now());
 
-  const syncToken = useCallback((newToken: string | null) => {
+  const syncToken = useCallback((newToken: string | null, customUser?: AuthUser | null) => {
     setToken(newToken);
-    const parsed = newToken ? parseToken(newToken) : null;
-    setUser(parsed);
+    if (customUser !== undefined) {
+      setUser(customUser);
+    } else {
+      const parsed = newToken ? parseToken(newToken) : null;
+      setUser(parsed);
+    }
     if (typeof window !== 'undefined') {
       if (newToken) {
         localStorage.setItem(STORAGE_KEY, newToken);
@@ -202,14 +209,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Token não retornado pelo servidor.');
     }
 
-    syncToken(result.token);
+    syncToken(result.token, result.user);
   };
 
-  const signup = async (email: string, password: string) => {
+  const signup = async (email: string, password: string, name?: string) => {
     const response = await fetch('/api/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, name }),
     });
 
     if (!response.ok) {
@@ -233,7 +240,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!result?.token) {
       throw new Error('Token não retornado pelo servidor.');
     }
-    syncToken(result.token);
+    syncToken(result.token, result.user);
   };
 
 
@@ -250,9 +257,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const updateUser = useCallback((updatedFields: Partial<AuthUser>) => {
+    setUser((prev) => prev ? { ...prev, ...updatedFields } : null);
+  }, []);
+
   const value = useMemo(
-    () => ({ user, token, loading, login, signup, logout, authFetch }),
-    [loading, user, token]
+    () => ({ user, token, loading, login, signup, logout, authFetch, updateUser }),
+    [loading, user, token, updateUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

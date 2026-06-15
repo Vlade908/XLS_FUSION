@@ -9,7 +9,7 @@ const isValidEmail = (value: any) =>
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, name } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
     }
@@ -29,9 +29,20 @@ export const signup = async (req: Request, res: Response) => {
     }
 
     const passwordHash = await hashPassword(String(password));
-    const user = await UserModel.create({ email: normalizedEmail, passwordHash });
+    const user = await UserModel.create({ 
+      email: normalizedEmail, 
+      passwordHash,
+      name: String(name || '').trim(),
+    });
     const token = createAuthToken({ userId: user._id.toString(), email: user.email });
-    return res.status(201).json({ token, user: { email: user.email } });
+    return res.status(201).json({ 
+      token, 
+      user: { 
+        email: user.email, 
+        name: user.name || '', 
+        avatarUrl: (user as any).avatarUrl || '' 
+      } 
+    });
   } catch (err: any) {
     console.error('❌ [SIGNUP ERROR]:', err.message);
     res.status(500).json({ error: err.message });
@@ -61,7 +72,14 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const token = createAuthToken({ userId: user._id.toString(), email: user.email });
-    return res.status(200).json({ token, user: { email: user.email } });
+    return res.status(200).json({ 
+      token, 
+      user: { 
+        email: user.email, 
+        name: user.name || '', 
+        avatarUrl: (user as any).avatarUrl || '' 
+      } 
+    });
   } catch (err: any) {
     console.error('❌ [LOGIN ERROR]:', err.message);
     res.status(500).json({ error: err.message });
@@ -69,19 +87,45 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const me = async (req: Request, res: Response) => {
-  // O middleware de autenticação (requireAuth) já garante que req.user exista
-  const email = (req as any).user?.email || null;
-  return res.status(200).json({ user: { email } });
+  try {
+    const email = (req as any).user?.email;
+    if (!email) return res.status(401).json({ error: 'Não autorizado.' });
+
+    const user = await UserModel.findOne({ email: email.toLowerCase() }).lean();
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+    return res.status(200).json({ 
+      user: { 
+        email: user.email, 
+        name: user.name || '', 
+        avatarUrl: (user as any).avatarUrl || '' 
+      } 
+    });
+  } catch (err: any) {
+    console.error('❌ [ME ERROR]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 };
 
 export const refresh = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) {
+    const email = (req as any).user?.email;
+    if (!email) {
       return res.status(401).json({ error: 'Não autorizado.' });
     }
-    const token = createAuthToken({ userId: user.userId, email: user.email });
-    return res.status(200).json({ token, user: { email: user.email } });
+    
+    const user = await UserModel.findOne({ email: email.toLowerCase() }).lean();
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+    const token = createAuthToken({ userId: String(user._id), email: user.email });
+    return res.status(200).json({ 
+      token, 
+      user: { 
+        email: user.email, 
+        name: user.name || '', 
+        avatarUrl: (user as any).avatarUrl || '' 
+      } 
+    });
   } catch (err: any) {
     console.error('❌ [REFRESH ERROR]:', err.message);
     res.status(500).json({ error: err.message });
@@ -157,5 +201,34 @@ export const resetPassword = async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error('❌ [RESET PASSWORD ERROR]:', err.message);
     res.status(500).json({ error: err.message });
+  }
+};
+
+export const updateProfile = async (req: Request, res: Response) => {
+  try {
+    const email = (req as any).user?.email;
+    if (!email) return res.status(401).json({ error: 'Não autenticado.' });
+
+    const { name, avatarUrl } = req.body;
+
+    const user = await UserModel.findOne({ email: email.toLowerCase() });
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+    if (name !== undefined) user.name = String(name).trim();
+    if (avatarUrl !== undefined) (user as any).avatarUrl = String(avatarUrl);
+
+    await user.save();
+
+    return res.status(200).json({
+      message: 'Perfil atualizado com sucesso!',
+      user: {
+        email: user.email,
+        name: user.name || '',
+        avatarUrl: (user as any).avatarUrl || '',
+      }
+    });
+  } catch (err: any) {
+    console.error('❌ [UPDATE PROFILE ERROR]:', err.message);
+    res.status(500).json({ error: 'Erro ao atualizar perfil.' });
   }
 };

@@ -15,7 +15,7 @@ import { upload } from './gridfs';
 import { requireAuth } from './middleware/authMiddleware';
 
 // Controllers
-import { signup, login, me, refresh, forgotPassword, resetPassword } from './controllers/authController';
+import { signup, login, me, refresh, forgotPassword, resetPassword, updateProfile } from './controllers/authController';
 import {
   listForms,
   saveForm,
@@ -55,6 +55,7 @@ export function registerRoutes(app: Express) {
   app.post('/api/login', login);
   app.get('/api/me', requireAuth, me);
   app.post('/api/refresh', requireAuth, refresh);
+  app.put('/api/user/profile', requireAuth, updateProfile);
   app.post('/api/forgot-password', forgotPassword);
   app.post('/api/reset-password', resetPassword);
 

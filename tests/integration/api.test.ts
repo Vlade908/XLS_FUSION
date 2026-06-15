@@ -27,6 +27,21 @@ jest.mock('../../src/server/gridfs', () => ({
   },
 }));
 
+jest.mock('../../src/server/models', () => ({
+  UserModel: {
+    findOne: jest.fn().mockImplementation(() => ({
+      lean: jest.fn().mockResolvedValue({
+        email: 'test@example.com',
+        name: 'Test User',
+        avatarUrl: ''
+      })
+    }))
+  },
+  FormModel: { findOne: jest.fn(), find: jest.fn() },
+  ResponseModel: { findOne: jest.fn() },
+  AccessRequestModel: { findOne: jest.fn() },
+}));
+
 describe('API Routes Integration Tests', () => {
   let app: any;
   let authToken: string;
@@ -165,7 +180,7 @@ describe('API Routes Integration Tests', () => {
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ user: { email: 'test@example.com' } });
+      expect(response.body).toEqual({ user: { email: 'test@example.com', name: 'Test User', avatarUrl: '' } });
     });
 
     it('should return 401 when token is invalid', async () => {
@@ -194,7 +209,7 @@ describe('API Routes Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('token');
-      expect(response.body.user).toEqual({ email: 'test@example.com' });
+      expect(response.body.user).toEqual({ email: 'test@example.com', name: 'Test User', avatarUrl: '' });
     });
 
     it('should return 401 when token is invalid', async () => {
