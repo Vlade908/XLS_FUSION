@@ -28,7 +28,7 @@ import {
   saveUserResponse,
   getFormResponsesDashboard,
 } from './controllers/formController';
-import { getPublicForm, submitPublicResponse } from './controllers/publicFormController';
+import { getPublicForm, submitPublicResponse, getPublicResponse } from './controllers/publicFormController';
 import {
   uploadAnexo,
   uploadPlanilha,
@@ -68,6 +68,7 @@ export function registerRoutes(app: Express) {
   // 4. Formulários Públicos (sem autenticação)
   // ─────────────────────────────────────────────
   app.get('/api/public-forms/:id', getPublicForm);
+  app.get('/api/public-forms/:id/responses', getPublicResponse);
   app.post('/api/public-forms/:id/responses', submitPublicResponse);
 
   // ─────────────────────────────────────────────

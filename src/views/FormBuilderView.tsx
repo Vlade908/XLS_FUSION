@@ -396,11 +396,11 @@ export default function FormBuilderView() {
     };
 
     return (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="form-details-modal-overlay fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="bg-white rounded-[2rem] border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+          className="form-details-modal-container bg-white rounded-[2rem] border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden"
         >
           {/* Modal Header */}
           <div className="flex items-start justify-between p-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
@@ -423,8 +423,10 @@ export default function FormBuilderView() {
             </button>
           </div>
 
-          {/* Modal Navigation Tabs */}
-          <div className="flex border-b border-slate-100 p-2 gap-1 bg-slate-50/50">
+          {/* Modal Body Wrapper */}
+          <div className="form-details-modal-body-wrapper flex flex-col flex-1 min-h-0">
+            {/* Modal Navigation Tabs */}
+            <div className="form-details-modal-tabs flex border-b border-slate-100 p-2 gap-1 bg-slate-50/50">
             <button
               onClick={() => {
                 setDetailsTab('geral');
@@ -470,7 +472,7 @@ export default function FormBuilderView() {
           </div>
 
           {/* Modal Content Area */}
-          <div className="flex-1 overflow-y-auto p-6 min-h-0 custom-scrollbar">
+          <div className="form-details-modal-content flex-1 overflow-y-auto p-6 min-h-0 custom-scrollbar">
             {detailsTab === 'geral' && (
               <div className="space-y-6">
                 {/* Stats Grid */}
@@ -775,10 +777,11 @@ export default function FormBuilderView() {
               </div>
             )}
           </div>
-        </motion.div>
-      </div>
-    );
-  };
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 p-6">

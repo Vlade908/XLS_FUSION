@@ -60,4 +60,257 @@
   main > div {
     padding: 1.5rem !important;
   }
+
+  /* Estilização para tela de login em modo paisagem (mobile horizontal) */
+  .auth-container {
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: 1rem !important;
+    overflow-y: auto !important;
+    height: auto !important;
+    min-height: 100vh !important;
+  }
+
+  .auth-card {
+    margin: 1.5rem auto !important;
+    padding: 1.5rem 2rem !important;
+    border-radius: 1.5rem !important;
+  }
+
+  .auth-card h1 {
+    font-size: 1.5rem !important; /* text-2xl */
+    margin-bottom: 0.25rem !important;
+  }
+
+  .auth-card p.text-sm {
+    margin-bottom: 0.75rem !important;
+  }
+
+  .auth-card form {
+    margin-top: 0.75rem !important;
+  }
+
+  .auth-card form > div,
+  .auth-card form > label {
+    margin-top: 0.5rem !important;
+  }
+
+  /* Estilização para modal de detalhes em modo paisagem (mobile horizontal) */
+  .form-details-modal-overlay {
+    padding: 0 !important;
+  }
+
+  .form-details-modal-container {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+
+  /* Reduzir tamanho do cabeçalho */
+  .form-details-modal-container > div:first-child {
+    padding: 0.75rem 1.25rem !important;
+  }
+
+  .form-details-modal-container h2 {
+    font-size: 1.25rem !important; /* text-lg */
+  }
+
+  .form-details-modal-container p.text-sm {
+    display: none !important; /* Esconde descrição longa para economizar espaço vertical */
+  }
+
+  /* Layout Horizontal (Split Screen) */
+  .form-details-modal-body-wrapper {
+    flex-direction: row !important;
+  }
+
+  /* Abas viram sidebar lateral */
+  .form-details-modal-tabs {
+    flex-direction: column !important;
+    width: 12rem !important; /* 192px */
+    height: 100% !important;
+    border-bottom: none !important;
+    border-right: 1px solid #E2E8F0 !important;
+    padding: 0.5rem !important;
+  }
+
+  .form-details-modal-tabs button {
+    flex: none !important;
+    width: 100% !important;
+    text-align: left !important;
+    padding: 0.75rem 1rem !important;
+  }
+
+  .form-details-modal-content {
+    padding: 1.25rem !important;
+  }
+
+  /* Responder View (Answering Pages) Mobile Landscape (height < 500px) */
+  .responder-answering-container,
+  .web-responder-container {
+    max-width: 100% !important;
+    padding: 0.5rem 1.5rem !important;
+  }
+
+  /* Colapsar cabeçalho do formulário em uma barra compacta no topo */
+  .responder-header-card,
+  .web-responder-header {
+    padding: 0.75rem 1.25rem !important;
+    border-radius: 1rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .responder-header-card p,
+  .web-responder-header p {
+    display: none !important; /* Oculta descrição longa no landscape */
+  }
+
+  .responder-header-card h2,
+  .web-responder-header h1 {
+    font-size: 1.125rem !important; /* text-md */
+    line-height: 1.25rem !important;
+  }
+
+  /* Cards de questões compactas */
+  .responder-question-card,
+  .web-responder-question-card {
+    padding: 1rem 1.5rem !important;
+    border-radius: 1.25rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .responder-question-card p,
+  .web-responder-question-card p {
+    font-size: 0.875rem !important;
+  }
+
+  /* Opções dispostas de forma flexível ou em grid de duas colunas para economizar espaço vertical */
+  .responder-options-wrapper,
+  .web-responder-options-wrapper {
+    display: grid !important;
+    grid-template-cols: repeat(auto-fit, minmax(200px, 1fr)) !important;
+    gap: 0.5rem !important;
+    max-width: 100% !important;
+  }
+
+  .responder-options-wrapper button,
+  .web-responder-options-wrapper label {
+    margin: 0 !important;
+    min-height: 40px !important;
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  .responder-simnao-wrapper,
+  .web-responder-simnao-wrapper {
+    display: grid !important;
+    grid-template-cols: 1fr 1fr !important;
+    max-width: 300px !important;
+    gap: 0.5rem !important;
+  }
+
+  .responder-simnao-wrapper button,
+  .web-responder-simnao-wrapper label {
+    min-height: 40px !important;
+    padding: 0.5rem !important;
+  }
 }
+
+/* Estilização para modal de detalhes em modo retrato (mobile vertical) */
+@media (max-width: 640px) {
+  .form-details-modal-overlay {
+    padding: 0 !important;
+  }
+
+  .form-details-modal-container {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+
+  .form-details-modal-container > div:first-child {
+    padding: 1rem !important;
+  }
+
+  .form-details-modal-tabs button {
+    padding: 0.5rem 0.25rem !important;
+    font-size: 10px !important;
+  }
+
+  .form-details-modal-content {
+    padding: 1rem !important;
+  }
+
+  /* Responder View (Answering Pages) Mobile Portrait (width < 640px) */
+  .responder-answering-container,
+  .web-responder-container {
+    padding: 0.5rem !important;
+  }
+
+  /* Compactar cabeçalhos de formulários */
+  .responder-header-card,
+  .web-responder-header {
+    padding: 1.25rem !important;
+    border-radius: 1.5rem !important;
+  }
+
+  .responder-header-card h2,
+  .web-responder-header h1 {
+    font-size: 1.25rem !important; /* text-lg */
+  }
+
+  /* Cards de questões com toque amigável */
+  .responder-question-card,
+  .web-responder-question-card {
+    padding: 1.25rem !important;
+    border-radius: 1.5rem !important;
+  }
+
+  /* Ocupar largura total em botões de opções com margens maiores de toque */
+  .responder-options-wrapper button,
+  .web-responder-options-wrapper label {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 48px !important; /* Padrão de acessibilidade móvel para toque */
+    padding: 0.875rem 1rem !important;
+  }
+
+  /* Deixar botões de Sim/Não lado a lado, mas maiores */
+  .responder-simnao-wrapper,
+  .web-responder-simnao-wrapper {
+    max-width: 100% !important;
+    width: 100% !important;
+    gap: 0.5rem !important;
+  }
+
+  .responder-simnao-wrapper button,
+  .web-responder-simnao-wrapper label {
+    min-height: 48px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+}
+
+/* Scrollbar customizada e fina para painéis e grids */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+

@@ -105,8 +105,8 @@ export default function AuthView({ resetToken }: AuthViewProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F0F2F5] p-6">
-      <div className="w-full max-w-md rounded-[2rem] bg-white p-10 shadow-xl border border-slate-200">
+    <div className="auth-container min-h-screen flex items-center justify-center bg-[#F0F2F5] p-6">
+      <div className="auth-card w-full max-w-md rounded-[2rem] bg-white p-10 shadow-xl border border-slate-200">
         <h1 className="text-3xl font-black text-slate-900 mb-2">{getTitle()}</h1>
         <p className="text-sm text-slate-500 mb-8">{getSubtitle()}</p>
 

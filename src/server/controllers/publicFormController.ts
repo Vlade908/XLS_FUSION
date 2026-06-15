@@ -134,3 +134,38 @@ export const submitPublicResponse = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Erro ao enviar resposta.' });
   }
 };
+
+export const getPublicResponse = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { email } = req.query;
+    const normalizedEmail = sanitizeResponderEmail(email);
+
+    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ error: 'E-mail do respondente inválido.' });
+    }
+
+    const form = await FormModel.findById(id).lean();
+    if (!form) return res.status(404).json({ error: 'Formulário não encontrado.' });
+
+    // Validate email permission if the form restricts access
+    if (form.allowedEmails && form.allowedEmails.length > 0) {
+      const domain = normalizedEmail.split('@')[1] || '';
+      const allowed =
+        normalizedEmail === form.ownerEmail?.toLowerCase() ||
+        form.allowedEmails.includes(normalizedEmail) ||
+        (form.allowedDomains && form.allowedDomains.includes(domain.toLowerCase()));
+
+      if (!allowed) {
+        return res.status(403).json({ error: 'Você não tem permissão para acessar as respostas deste formulário.' });
+      }
+    }
+
+    const existing = await ResponseModel.findOne({ formId: id, responderEmail: normalizedEmail }).lean();
+    res.status(200).json(existing ? existing.data : {});
+  } catch (err: any) {
+    console.error('❌ [GET PUBLIC RESPONSE ERROR]:', err.message);
+    res.status(500).json({ error: 'Erro ao buscar resposta anterior.' });
+  }
+};
+
