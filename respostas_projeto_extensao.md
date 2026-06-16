@@ -249,6 +249,7 @@ Para representar de forma clara, granular e padronizada a estrutura do sistema *
 Este nível apresenta o escopo de atuação do sistema **XLS_FUSION**, demonstrando como os atores humanos e os sistemas de suporte externos interagem com a fronteira da nossa aplicação.
 
 ```mermaid
+%%{init: {'theme': 'default', 'themeVariables': { 'background': '#ffffff', 'canvasBackground': '#ffffff' }}}%%
 C4Context
     title Diagrama de Contexto de Sistema (Nível 1) - XLS_FUSION
 
@@ -270,6 +271,7 @@ C4Context
 Detelha as unidades lógicas executáveis (containers) que compõem o ecossistema interno do **XLS_FUSION**, especificando tecnologias, responsabilidades e os protocolos de rede utilizados para a comunicação entre eles.
 
 ```mermaid
+%%{init: {'theme': 'default', 'themeVariables': { 'background': '#ffffff', 'canvasBackground': '#ffffff' }}}%%
 C4Container
     title Diagrama de Containers C4 - XLS_FUSION
 
@@ -294,6 +296,7 @@ C4Container
 Abre o container principal do **Backend REST API** para mapear os seus componentes lógicos internos (middlewares de interceptação, controladores de rotas e conexões de persistência de dados), exibindo como a lógica de negócios está orquestrada.
 
 ```mermaid
+%%{init: {'theme': 'default', 'themeVariables': { 'background': '#ffffff', 'canvasBackground': '#ffffff' }}}%%
 C4Component
     title Diagrama de Componentes (Nível 3) - Backend REST API
 
