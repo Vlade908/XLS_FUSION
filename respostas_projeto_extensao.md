@@ -260,16 +260,16 @@ Para representar de forma clara, granular e padronizada a estrutura do sistema *
 Este nível apresenta o escopo de atuação do sistema **XLS_FUSION**, demonstrando como os atores humanos e os sistemas de suporte externos interagem com a fronteira da nossa aplicação.
 
 ```mermaid
-%%{init: { 'theme': 'default', 'themeVariables': { 'background': '#ffffff', 'canvasBackground': '#ffffff' }, 'flowchart': { 'nodeSpacing': 200, 'rankSpacing': 150 } }}%%
+%%{init: { 'theme': 'default', 'themeVariables': { 'background': '#ffffff', 'canvasBackground': '#ffffff' }, 'flowchart': { 'nodeSpacing': 300, 'rankSpacing': 150 } }}%%
 C4Context
     title Diagrama de Contexto de Sistema (Nível 1) - XLS_FUSION
 
-    Person(owner, "Dono do Formulário", "Cria formulários inteligentes e gerencia permissões e solicitações de acessos.")
-    Person(responder, "Respondente", "Visualiza e preenche as respostas dos formulários de forma online ou via planilhas offline.")
+    Person(owner, "Dono do Formulário", "Cria formulários inteligentes e gerencia permissões e<br/>solicitações de acessos.")
+    Person(responder, "Respondente", "Visualiza e preenche as respostas dos formulários de forma<br/>online ou via planilhas offline.")
 
-    System(xls_fusion, "XLS_FUSION", "Plataforma de formulação e coleta de dados com integração de planilhas locais estruturadas e controle rígido de segurança.")
+    System(xls_fusion, "XLS_FUSION", "Plataforma de formulação e coleta brde dados com integração de<br/>planilhas locais estruturadas e controle rígido de segurança.")
 
-    System_Ext(smtp, "Servidor SMTP / E-mail", "Sistema externo (opcional) de envio de notificações e e-mails de alerta.")
+    System_Ext(smtp, "Servidor SMTP / E-mail", "Sistema externo (opcional) de envio de notificações e<br/>e-mails de alerta.")
 
     Rel(owner, xls_fusion, "Cria formulários, gerencia permissões e aprova acessos", "HTTPS")
     Rel(responder, xls_fusion, "Responde a formulários e anexa comprovantes", "HTTPS")
@@ -283,17 +283,17 @@ C4Context
 Detelha as unidades lógicas executáveis (containers) que compõem o ecossistema interno do **XLS_FUSION**, especificando tecnologias, responsabilidades e os protocolos de rede utilizados para a comunicação entre eles.
 
 ```mermaid
-%%{init: { 'theme': 'default', 'themeVariables': { 'background': '#ffffff', 'canvasBackground': '#ffffff' }, 'flowchart': { 'nodeSpacing': 120, 'rankSpacing': 120 } }}%%
+%%{init: { 'theme': 'default', 'themeVariables': { 'background': '#ffffff', 'canvasBackground': '#ffffff' }, 'flowchart': { 'nodeSpacing': 200, 'rankSpacing': 150 } }}%%
 C4Container
     title Diagrama de Containers C4 - XLS_FUSION
 
     Person(user, "Usuário / Respondente", "Pessoa que interage com a plataforma para criar formulários ou preencher respostas (online/offline).")
 
     System_Boundary(xls_fusion_boundary, "Plataforma XLS_FUSION") {
-        Container(spa, "Frontend Web App (SPA)", "React, Vite, TypeScript, xlsx-js-style", "Interface Single Page Application que gerencia a renderização de formulários, controle offline de cache em LocalStorage e manipulação estruturada das planilhas Excel.")
-        Container(api, "Backend REST API", "Node.js, Express, TypeScript, JWT", "Prover endpoints REST de autenticação, fluxos de negócio, validações de acesso a dados e manipulação de uploads.")
-        ContainerDb(db, "Banco de Dados NoSQL", "MongoDB (Mongoose / Prisma)", "Armazena os documentos estruturados da aplicação (dados de usuários, formulários, respostas e histórico).")
-        ContainerDb(gridfs, "Armazenamento Binário", "MongoDB GridFS", "Mapeia e armazena os arquivos binários pesados de comprovantes anexados pelos respondentes.")
+        Container(spa, "Frontend Web App (SPA)", "React, Vite, TypeScript, xlsx-js-style", "Interface Single Page Application que gerencia<br/>a renderização de formulários, controle offline de cache em<br/>LocalStorage e manipulação estruturada das planilhas Excel.")
+        Container(api, "Backend REST API", "Node.js, Express, TypeScript, JWT", "Prover endpoints REST de autenticação, fluxos de negócio,<br/>validações de acesso a dados e manipulação de uploads.")
+        ContainerDb(db, "Banco de Dados NoSQL", "MongoDB (Mongoose / Prisma)", "Armazena os documentos estruturados da aplicação (dados de<br/>usuários, formulários, respostas e histórico).")
+        ContainerDb(gridfs, "Armazenamento Binário", "MongoDB GridFS", "Mapeia e armazena os arquivos binários pesados de<br/>comprovantes anexados pelos respondentes.")
     }
 
     Rel(user, spa, "Interage via interface web", "HTTPS / Navegador")
