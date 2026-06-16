@@ -249,20 +249,20 @@ Para representar de forma clara, granular e padronizada a estrutura do sistema *
 Este nível apresenta o escopo de atuação do sistema **XLS_FUSION**, demonstrando como os atores humanos e os sistemas de suporte externos interagem com a fronteira da nossa aplicação.
 
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'background': '#ffffff', 'canvasBackground': '#ffffff' }}}%%
+%%{init: { 'theme': 'default', 'themeCSS': 'svg, rect.background, rect#background, .mermaid svg { background-color: #ffffff !important; background: #ffffff !important; }' } }%%
 C4Context
     title Diagrama de Contexto de Sistema (Nível 1) - XLS_FUSION
 
-    Person(owner, "Dono do Formulário", "Cria formulários inteligentes e gerencia permissões e solicitações de acessos.")
-    Person(responder, "Respondente", "Visualiza e preenche as respostas dos formulários de forma online ou via planilhas offline.")
+    Person(owner, "Dono do Formulário", "Cria formulários inteligentes,<br/>gerencia permissões e solicitações.")
+    Person(responder, "Respondente", "Visualiza e preenche respostas<br/>online ou via planilhas offline.")
     
-    System(xls_fusion, "XLS_FUSION", "Plataforma de formulação e coleta de dados com integração de planilhas locais estruturadas e controle rígido de segurança.")
+    System(xls_fusion, "XLS_FUSION", "Plataforma de formulação e coleta<br/>com controle de acesso granular.")
     
-    System_Ext(smtp, "Servidor SMTP / E-mail", "Sistema externo (opcional) de envio de notificações e e-mails de alerta.")
+    System_Ext(smtp, "Servidor SMTP", "Sistema externo (opcional) de envio<br/>de notificações por e-mail.")
 
-    Rel(owner, xls_fusion, "Cria formulários, gerencia permissões e aprova acessos", "HTTPS")
-    Rel(responder, xls_fusion, "Responde a formulários e anexa comprovantes", "HTTPS")
-    Rel(xls_fusion, smtp, "Dispara e-mails de alertas e notificações", "SMTP / SSL")
+    Rel(owner, xls_fusion, "Gerencia formulários e acessos", "HTTPS")
+    Rel(responder, xls_fusion, "Responde formulários e anexa arquivos", "HTTPS")
+    Rel(xls_fusion, smtp, "Envia notificações", "SMTP")
 ```
 
 ---
@@ -271,23 +271,23 @@ C4Context
 Detelha as unidades lógicas executáveis (containers) que compõem o ecossistema interno do **XLS_FUSION**, especificando tecnologias, responsabilidades e os protocolos de rede utilizados para a comunicação entre eles.
 
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'background': '#ffffff', 'canvasBackground': '#ffffff' }}}%%
+%%{init: { 'theme': 'default', 'themeCSS': 'svg, rect.background, rect#background, .mermaid svg { background-color: #ffffff !important; background: #ffffff !important; }' } }%%
 C4Container
     title Diagrama de Containers C4 - XLS_FUSION
 
-    Person(user, "Usuário / Respondente", "Pessoa que interage com a plataforma para criar formulários ou preencher respostas (online/offline).")
+    Person(user, "Usuário / Respondente", "Cria formulários ou preenche<br/>respostas (online/offline).")
     
     System_Boundary(xls_fusion_boundary, "Plataforma XLS_FUSION") {
-        Container(spa, "Frontend Web App (SPA)", "React, Vite, TypeScript, xlsx-js-style", "Interface Single Page Application que gerencia a renderização de formulários, controle offline de cache em LocalStorage e manipulação estruturada das planilhas Excel.")
-        Container(api, "Backend REST API", "Node.js, Express, TypeScript, JWT", "Prover endpoints REST de autenticação, fluxos de negócio, validações de acesso a dados e manipulação de uploads.")
-        ContainerDb(db, "Banco de Dados NoSQL", "MongoDB (Mongoose / Prisma)", "Armazena os documentos estruturados da aplicação (dados de usuários, formulários, respostas e histórico).")
-        ContainerDb(gridfs, "Armazenamento Binário", "MongoDB GridFS", "Mapeia e armazena os arquivos binários pesados de comprovantes anexados pelos respondentes.")
+        Container(spa, "Frontend Web App (SPA)", "React, Vite, TS, xlsx-js-style", "SPA que gerencia formulários, cache local<br/>(offline) e processamento de planilhas.")
+        Container(api, "Backend REST API", "Node.js, Express, TS, JWT", "Prover endpoints de autenticação JWT,<br/>validações e controle de uploads.")
+        ContainerDb(db, "Banco de Dados NoSQL", "MongoDB (Mongoose/Prisma)", "Armazena dados de usuários, formulários,<br/>respostas e trilha de histórico.")
+        ContainerDb(gridfs, "Armazenamento Binário", "MongoDB GridFS", "Armazena arquivos binários grandes<br/>(comprovantes e anexos).")
     }
     
-    Rel(user, spa, "Interage via interface web", "HTTPS / Navegador")
-    Rel(spa, api, "Consome endpoints e envia payloads", "HTTPS / JSON")
-    Rel(api, db, "Persistência e queries de coleções", "Mongoose e Prisma (Porta 27017)")
-    Rel(api, gridfs, "Grava e recupera arquivos anexados", "Multer e GridFS (Porta 27017)")
+    Rel(user, spa, "Interage via UI", "HTTPS")
+    Rel(spa, api, "Consome endpoints", "HTTPS / JSON")
+    Rel(api, db, "Persistência de dados", "Mongoose / Porta 27017")
+    Rel(api, gridfs, "Grava e lê arquivos", "GridFS / Porta 27017")
 ```
 
 ---
@@ -296,42 +296,42 @@ C4Container
 Abre o container principal do **Backend REST API** para mapear os seus componentes lógicos internos (middlewares de interceptação, controladores de rotas e conexões de persistência de dados), exibindo como a lógica de negócios está orquestrada.
 
 ```mermaid
-%%{init: {'theme': 'default', 'themeVariables': { 'background': '#ffffff', 'canvasBackground': '#ffffff' }}}%%
+%%{init: { 'theme': 'default', 'themeCSS': 'svg, rect.background, rect#background, .mermaid svg { background-color: #ffffff !important; background: #ffffff !important; }' } }%%
 C4Component
     title Diagrama de Componentes (Nível 3) - Backend REST API
 
-    Container(spa, "Frontend Web App (SPA)", "React, TypeScript, Vite", "Interface de usuário de formulários dinâmicos.")
-    ContainerDb(db, "Banco de Dados NoSQL", "MongoDB", "Armazena documentos estruturados.")
+    Container(spa, "Frontend Web App (SPA)", "React, TypeScript, Vite", "Interface de formulários dinâmicos.")
+    ContainerDb(db, "Banco de Dados NoSQL", "MongoDB", "Armazena coleções estruturadas.")
     ContainerDb(gridfs, "Armazenamento Binário", "MongoDB GridFS", "Armazena anexos grandes.")
 
     System_Boundary(api_boundary, "Backend REST API") {
-        Component(auth_guard, "Auth Middleware", "Express Middleware", "Valida tokens JWT e protege rotas seguras.")
-        Component(multer_mid, "Multer Middleware", "Multer/GridFS-Storage", "Intermedeia uploads de arquivos e mapeamento no GridFS.")
+        Component(auth_guard, "Auth Middleware", "Express Middleware", "Valida tokens JWT e protege rotas.")
+        Component(multer_mid, "Multer Middleware", "Multer/GridFS-Storage", "Intermedeia uploads e<br/>mapeamento no GridFS.")
         
-        Component(auth_controller, "Auth Controller", "Express Router Controller", "Lida com fluxos de login, signup e sessão do usuário.")
-        Component(form_controller, "Form Controller", "Express Router Controller", "Gerencia o CRUD de formulários, respostas e aprovações de acesso.")
-        Component(file_controller, "File Controller", "Express Router Controller", "Gerencia a lógica de salvamento e download de planilhas e anexos.")
+        Component(auth_controller, "Auth Controller", "Express Controller", "Fluxos de login, signup<br/>e sessão do usuário.")
+        Component(form_controller, "Form Controller", "Express Controller", "CRUD de formulários, respostas<br/>e controle de acessos.")
+        Component(file_controller, "File Controller", "Express Controller", "Importação/exportação de planilhas<br/>e uploads.")
         
-        Component(mongoose_client, "Mongoose models", "ODM / Mongoose Client", "Acessa diretamente as coleções do MongoDB e manipula dados.")
-        Component(prisma_client, "Prisma Client", "ORM / Prisma Client", "Auxilia na integridade do banco de dados na inicialização.")
+        Component(mongoose_client, "Mongoose Models", "Mongoose ODM", "Acesso às coleções do MongoDB.")
+        Component(prisma_client, "Prisma Client", "Prisma ORM", "Auxiliar de integridade na inicialização.")
     }
 
-    Rel(spa, auth_controller, "Requisições de login e registro", "HTTPS / JSON")
-    Rel(spa, auth_guard, "Envia token JWT para rotas privadas", "HTTPS / Authorization Bearer")
-    Rel(spa, multer_mid, "Envia arquivos para upload", "multipart/form-data")
+    Rel(spa, auth_controller, "Login e Registro", "HTTPS/JSON")
+    Rel(spa, auth_guard, "Rotas privadas", "HTTPS/JWT")
+    Rel(spa, multer_mid, "Uploads", "multipart")
 
-    Rel(auth_guard, form_controller, "Repassa requisição autorizada")
-    Rel(auth_guard, file_controller, "Repassa requisição autorizada")
+    Rel(auth_guard, form_controller, "Repassa rota")
+    Rel(auth_guard, file_controller, "Repassa rota")
     
-    Rel(multer_mid, file_controller, "Repassa metadados do arquivo")
+    Rel(multer_mid, file_controller, "Dados do anexo")
 
-    Rel(auth_controller, mongoose_client, "Operações de usuários")
-    Rel(form_controller, mongoose_client, "Operações de formulários e respostas")
-    Rel(file_controller, mongoose_client, "Operações de uploads e compartilhamentos")
+    Rel(auth_controller, mongoose_client, "Query usuários")
+    Rel(form_controller, mongoose_client, "Query formulários")
+    Rel(file_controller, mongoose_client, "Query arquivos")
 
-    Rel(mongoose_client, db, "Acesso a coleções", "Mongoose Driver")
-    Rel(mongoose_client, gridfs, "Acesso a arquivos", "GridFS Stream")
-    Rel(prisma_client, db, "Sincroniza estrutura", "Prisma Engine")
+    Rel(mongoose_client, db, "Acesso coleções", "Driver MongoDB")
+    Rel(mongoose_client, gridfs, "Acesso arquivos", "GridFS Stream")
+    Rel(prisma_client, db, "Sincroniza schema", "Prisma Engine")
 ```
 
 **Justificativa**: A modularização em três níveis do C4 Model comprova a robustez e o desacoplamento do XLS_FUSION. O Nível 1 delimita o ecossistema com clareza para stakeholders; o Nível 2 comprova a descentralização computacional (frontend processando a formatação pesada do Excel no cliente e backend fornecendo persistência segura); e o Nível 3 detalha a governança interna de código da API, evidenciando o fluxo transparente entre middlewares de segurança (JWT), manipuladores de uploads (Multer) e controladores de persistência (Mongoose e Prisma).
