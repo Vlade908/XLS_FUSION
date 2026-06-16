@@ -265,15 +265,18 @@ C4Context
     title Diagrama de Contexto de Sistema (Nível 1) - XLS_FUSION
 
     Person(owner, "Dono do Formulário", "Cria formulários inteligentes e gerencia permissões e<br/>solicitações de acessos.")
+
+     System(xls_fusion, "XLS_FUSION", "Plataforma de formulação e coleta de dados com integração de<br/>planilhas locais estruturadas e controle rígido de segurança.")
+
     Person(responder, "Respondente", "Visualiza e preenche as respostas dos formulários de forma<br/>online ou via planilhas offline.")
 
-    System(xls_fusion, "XLS_FUSION", "Plataforma de formulação e coleta brde dados com integração de<br/>planilhas locais estruturadas e controle rígido de segurança.")
+
 
     System_Ext(smtp, "Servidor SMTP / E-mail", "Sistema externo (opcional) de envio de notificações e<br/>e-mails de alerta.")
 
-    Rel(owner, xls_fusion, "Cria formulários, gerencia permissões e aprova acessos", "HTTPS")
-    Rel(responder, xls_fusion, "Responde a formulários e anexa comprovantes", "HTTPS")
-    Rel(xls_fusion, smtp, "Dispara e-mails de<br/>alertas e notificações", "SMTP / SSL")
+    Rel_D(owner, xls_fusion, "Cria formulários, gerencia permissões<br/>e aprova acessos", "HTTPS")
+    Rel_D(responder, xls_fusion, "Responde a formulários e<br/>anexa comprovantes", "HTTPS")
+    Rel_R(xls_fusion, smtp, "Dispara e-mails de<br/>alertas e notificações", "SMTP / SSL")
 ```
 
 ---
