@@ -530,3 +530,101 @@ export const getFormResponsesDashboard = async (req: Request, res: Response) => 
     res.status(500).json({ error: err.message });
   }
 };
+
+export const getAnalyticsOverview = async (req: Request, res: Response) => {
+  try {
+    const email = (req as any).user?.email;
+    if (!email) return res.status(401).json({ error: 'Não autenticado.' });
+
+    // All forms owned by this user
+    const myForms = await FormModel.find({ ownerEmail: email }).lean();
+    const myFormIds = myForms.map((f: any) => f._id);
+
+    // All responses for those forms
+    const allResponses = await ResponseModel.find({ formId: { $in: myFormIds } }).lean();
+
+    // ── KPI 1: totals ──────────────────────────────────────────────
+    const totalForms = myForms.length;
+    const totalResponses = allResponses.length;
+    const uniqueRespondents = new Set(allResponses.map((r: any) => r.responderEmail)).size;
+    const publicForms = myForms.filter((f: any) =>
+      (!f.allowedEmails || f.allowedEmails.length === 0) &&
+      (!f.allowedDomains || f.allowedDomains.length === 0)
+    ).length;
+    const privateForms = totalForms - publicForms;
+
+    // ── KPI 2: responses per day (last 14 days) ────────────────────
+    const now = new Date();
+    const dayLabels: string[] = [];
+    const responsesPerDay: number[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const label = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      dayLabels.push(label);
+      const count = allResponses.filter((r: any) => {
+        const rd = new Date((r as any).createdAt);
+        return (
+          rd.getDate() === d.getDate() &&
+          rd.getMonth() === d.getMonth() &&
+          rd.getFullYear() === d.getFullYear()
+        );
+      }).length;
+      responsesPerDay.push(count);
+    }
+    const timeSeries = dayLabels.map((label, i) => ({ date: label, respostas: responsesPerDay[i] }));
+
+    // ── KPI 3: responses per form ──────────────────────────────────
+    const perForm = myForms.map((f: any) => {
+      const count = allResponses.filter((r: any) => String(r.formId) === String(f._id)).length;
+      return {
+        name: (f.title || f.name || 'Sem título').slice(0, 24),
+        fullName: f.title || f.name || 'Sem título',
+        respostas: count,
+        perguntas: (f.questions || []).length,
+        isPublic:
+          (!f.allowedEmails || f.allowedEmails.length === 0) &&
+          (!f.allowedDomains || f.allowedDomains.length === 0),
+      };
+    }).sort((a, b) => b.respostas - a.respostas);
+
+    // ── KPI 4: question type distribution ─────────────────────────
+    const typeCounts: Record<string, number> = {};
+    for (const form of myForms) {
+      for (const q of (form.questions as any[]) || []) {
+        typeCounts[q.type] = (typeCounts[q.type] || 0) + 1;
+      }
+    }
+    const typeLabels: Record<string, string> = {
+      simnao: 'Sim/Não',
+      alternativa: 'Alternativa',
+      respostaescrita: 'Texto Livre',
+      data: 'Data',
+      link: 'Link',
+      check: 'Múltipla Escolha',
+      arquivo: 'Arquivo',
+    };
+    const questionTypeDistribution = Object.entries(typeCounts).map(([type, value]) => ({
+      name: typeLabels[type] || type,
+      value,
+    }));
+
+    // ── KPI 5: avg response rate ───────────────────────────────────
+    const avgResponsesPerForm = totalForms > 0 ? (totalResponses / totalForms).toFixed(1) : '0';
+
+    res.status(200).json({
+      totalForms,
+      totalResponses,
+      uniqueRespondents,
+      publicForms,
+      privateForms,
+      avgResponsesPerForm: parseFloat(avgResponsesPerForm),
+      timeSeries,
+      perForm,
+      questionTypeDistribution,
+    });
+  } catch (err: any) {
+    console.error('❌ [ANALYTICS OVERVIEW ERROR]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};

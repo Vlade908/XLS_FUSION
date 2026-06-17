@@ -10,13 +10,18 @@
     "<rootDir>/src/**/__tests__/*.(ts|tsx)"
   ],
   "collectCoverageFrom": [
-    "src/**/*.{ts,tsx}",
+    "src/server/**/*.{ts,tsx}",
+    "src/utils/**/*.{ts,tsx}",
+    "!src/server/index.ts",
+    "!src/server/db.ts",
+    "!src/server/db-config.ts",
+    "!src/server/gridfs.ts",
+    "!src/server/models/index.ts",
     "!src/**/*.d.ts",
-    "!src/main.tsx",
     "!src/vite-env.d.ts"
   ],
   "coverageDirectory": "coverage",
-  "coverageReporters": ["text", "lcov", "html"],
+  "coverageReporters": ["text", "lcov", "html", "json-summary"],
   "transform": {
     "^.+\\.(ts|tsx)$": ["ts-jest", { "tsconfig": "tsconfig.app.json", "diagnostics": false }]
   },

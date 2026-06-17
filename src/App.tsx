@@ -6,15 +6,16 @@ import NotificationsView from './views/NotificationsView';
 import ShareView from './views/ShareView';
 import WebResponderView from './views/WebResponderView';
 import AuthView from './components/AuthView';
+import AnalyticsView from './views/AnalyticsView';
 import { useAuth } from './context/AuthContext.tsx';
-import { Bell, Menu, FileSpreadsheet, PenTool, User, LogOut, Key, FileText, Sun, Moon } from 'lucide-react';
+import { Bell, Menu, FileSpreadsheet, PenTool, User, LogOut, Key, FileText, Sun, Moon, BarChart2 } from 'lucide-react';
 import * as Popover from '@radix-ui/react-popover';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { motion } from 'framer-motion';
 import SettingsView from './views/SettingsView';
 
-const routeTabs = ['builder', 'share', 'responder', 'notifications', 'settings'] as const;
-type TabType = (typeof routeTabs)[number] | 'share-form' | 'reset-password';
+const routeTabs = ['builder', 'analytics', 'responder', 'notifications', 'settings'] as const;
+type TabType = (typeof routeTabs)[number] | 'share' | 'share-form' | 'reset-password';
 
 export default function App() {
   const getRoute = () => {
@@ -442,6 +443,7 @@ export default function App() {
           <nav className="flex-grow p-4 space-y-2">
             {[
               { id: 'builder', icon: <FileSpreadsheet className="w-4.5 h-4.5" />, label: 'Formulários' },
+              { id: 'analytics', icon: <BarChart2 className="w-4.5 h-4.5" />, label: 'Analytics' },
               { id: 'responder', icon: <PenTool className="w-4.5 h-4.5" />, label: 'Responder' },
               { id: 'notifications', icon: <Bell className="w-4.5 h-4.5" />, label: 'Central de Notifs' },
               { id: 'settings', icon: <User className="w-4.5 h-4.5" />, label: 'Minha Conta' }
@@ -478,6 +480,7 @@ export default function App() {
         <main className="flex-grow overflow-y-auto relative z-10 grid-bg bg-[#F0F2F5] dark:bg-[#030712] transition-colors duration-300">
           <div className="p-4 sm:p-6 md:p-8">
             {activeTab === 'builder' && <FormBuilderView />}
+            {activeTab === 'analytics' && <AnalyticsView />}
             {activeTab === 'responder' && <ResponderView />}
             {activeTab === 'notifications' && (
               <NotificationsView onClearUnread={() => setUnreadCount(0)} />

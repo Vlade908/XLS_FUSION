@@ -2,6 +2,50 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { SharedSpreadsheetModel } from '../models/index';
 
+// ── In-memory upload metrics tracker ─────────────────────────────────────────
+interface UploadMetric {
+  durationMs: number;
+  success: boolean;
+  sizeBytes: number;
+  timestamp: number;
+}
+
+const uploadMetrics: UploadMetric[] = [];
+const MAX_METRICS_HISTORY = 500;
+
+function recordUploadMetric(durationMs: number, success: boolean, sizeBytes: number) {
+  uploadMetrics.push({ durationMs, success, sizeBytes, timestamp: Date.now() });
+  if (uploadMetrics.length > MAX_METRICS_HISTORY) uploadMetrics.shift();
+}
+
+export function getUploadSystemMetrics() {
+  const total = uploadMetrics.length;
+  const successes = uploadMetrics.filter(m => m.success).length;
+  const failures = total - successes;
+  const successRate = total > 0 ? parseFloat(((successes / total) * 100).toFixed(2)) : null;
+
+  // Only measure heavy uploads (>100KB) for the avg parsing time
+  const heavyUploads = uploadMetrics.filter(m => m.success && m.sizeBytes > 100 * 1024);
+  const avgParsingMs = heavyUploads.length > 0
+    ? Math.round(heavyUploads.reduce((s, m) => s + m.durationMs, 0) / heavyUploads.length)
+    : null;
+
+  // All uploads avg
+  const allSuccess = uploadMetrics.filter(m => m.success);
+  const avgAllMs = allSuccess.length > 0
+    ? Math.round(allSuccess.reduce((s, m) => s + m.durationMs, 0) / allSuccess.length)
+    : null;
+
+  return {
+    totalUploads: total,
+    successfulUploads: successes,
+    failedUploads: failures,
+    successRatePct: successRate,
+    avgParsingMs: avgParsingMs ?? avgAllMs,
+    heavyUploadCount: heavyUploads.length,
+  };
+}
+
 const sanitizePath = (text: string) =>
   text
     .normalize('NFD')
@@ -41,8 +85,12 @@ export const uploadAnexo = async (req: Request, res: Response) => {
 };
 
 export const uploadPlanilha = async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    if (!req.file) return res.status(400).send('Arquivo não encontrado.');
+    if (!req.file) {
+      recordUploadMetric(Date.now() - startTime, false, 0);
+      return res.status(400).send('Arquivo não encontrado.');
+    }
 
     const fileInfo = {
       id: String((req.file as any).id),
@@ -52,8 +100,10 @@ export const uploadPlanilha = async (req: Request, res: Response) => {
       size: req.file.size,
     };
 
+    recordUploadMetric(Date.now() - startTime, true, req.file.size);
     res.status(201).json({ message: 'Planilha salva!', file: fileInfo });
   } catch (err: any) {
+    recordUploadMetric(Date.now() - startTime, false, req.file?.size || 0);
     console.error('❌ [UPLOAD PLANILHA ERROR]:', err.message);
     res.status(500).json({ error: err.message });
   }
